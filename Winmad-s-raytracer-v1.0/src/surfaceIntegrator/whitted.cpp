@@ -1,5 +1,4 @@
 #include "whitted.h"
-#include "simplePhong.h"
 
 void WhittedIntegrator::init(char *filename , Parameters& para)
 {

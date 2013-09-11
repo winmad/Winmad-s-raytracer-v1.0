@@ -18,7 +18,9 @@ Vector3 sampleOnRectangleStratified(
     const Vector3& v0 , const Vector3& v1 ,
     const Vector3& v2 , int curLayer , int totLayer);
 
-/* Importance sampling: cosine , pdf = cos(theta) / (2 * PI) */
+Vector3 uniformSampleDisk();
+
+/* Importance sampling: cosine , pdf = cos(theta) / PI */
 Vector3 sampleDirOnHemisphere(const Vector3& n);
 
 /* Uniform sampling , pdf = 1 / (4 * PI) */

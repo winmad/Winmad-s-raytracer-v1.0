@@ -31,6 +31,11 @@ public:
 			&& (cmp(b) == 0.0);
 	}
 
+	Real intensity()
+	{
+		return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+	}
+
 	void clamp()
 	{
 		r = clampVal(r , 0.0 , 1.0);

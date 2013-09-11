@@ -1,4 +1,5 @@
 #include "phong.h"
+#include "../sampler/sampler.h"
 
 Color3 Phong::calcBrdf(const Vector3& wi , 
 	const Vector3& wo , const Vector3& n)
@@ -17,4 +18,19 @@ Color3 Phong::calcBtdf(const Vector3& wi ,
 	Vector3 otherHemisphereDir = n * (wi ^ (-n)) * 2.0 + wi;
 	otherHemisphereDir.normalize();
 	return calcBrdf(otherHemisphereDir , wo , n);
+}
+
+Color3 Phong::calcRho(const Vector3& wo , const Vector3 &n)
+{
+	Color3 res = Color3(0.0 , 0.0 , 0.0);
+	int sampleNum = 10;
+	for (int i = 0; i < sampleNum; i++)
+	{
+		Vector3 wi = sampleDirOnHemisphere(n);
+		wi.normalize();
+		//Real invPdf = PI / (wi ^ n);
+		//res = res + (calcBrdf(wi , wo , n) * (wi ^ n) * invPdf);
+		res = res + calcBrdf(wi , wo , n) * PI;
+	}
+	return res / sampleNum;
 }

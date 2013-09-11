@@ -7,13 +7,9 @@ Vector3 sampleOnTriangle(
 {
     Vector3 p1 = v2 - v1;
     Vector3 p2 = v3 - v1;
-    Real beta = drand48();
-    Real gamma = drand48();
-    if (cmp(beta + gamma - 1) > 0)
-    {
-        beta = 1.0 - beta;
-        gamma = 1.0 - gamma;
-    }
+	Real u1 = sqrt(drand48());
+    Real beta = 1.0 - u1;
+    Real gamma = drand48() * u1;
     return v1 + p1 * beta + p2 * gamma;
 }
 
@@ -46,32 +42,21 @@ Vector3 sampleOnRectangleStratified(
     return v0 + p1 * a + p2 * b;
 }
 
-/* Importance sampling: cosine */
+Vector3 uniformSampleDisk() 
+{
+	Real u1 = drand48() , u2 = drand48();
+	Real r = sqrt(u1);
+	Real theta = 2.0 * PI * u2;
+	return Vector3(r * cos(theta) , r * sin(theta) , 0.0);
+}
+
+/* Importance sampling: cosine , pdf = cos(theta) / PI */
 Vector3 sampleDirOnHemisphere(const Vector3& n)
 {
-    Vector3 u , v;
-    if (cmp(n.x) == 0 && cmp(n.y) == 0)
-        u = Vector3(n.z , 0.0 , -n.x);
-    else
-        u = Vector3(n.y , -n.x , 0.0);
-    u.normalize();
-    v = n * u;
-    v.normalize();
-
-    Vector3 reflectDir;
-    while (1)
-    {
-        Real a = drand48();
-        Real theta = drand48() * PI * 2.0;
-        reflectDir = u * sqrt(a * (2.0 - a)) * cos(theta) +
-            v * sqrt(a * (2.0 - a)) * sin(theta) + n * (1.0 - a);
-        reflectDir.normalize();
-
-        Real p = reflectDir ^ n;
-        if (cmp(drand48() - p) < 0)
-            break;
-    }
-    return reflectDir;
+    Vector3 res;
+	res = uniformSampleDisk();
+	res.z = sqrt(std::max(0.0 , 1.0 - SQR(res.x) - SQR(res.y)));
+	return res;
 }
 
 Vector3 uniformSampleDirOnSphere()

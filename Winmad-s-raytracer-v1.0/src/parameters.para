@@ -2,7 +2,7 @@
 2
 
 #SAMPLES_PER_PIXEL
-1
+4
 
 #SAMPLES_OF_LIGHT(path_tracing)
 8
@@ -20,4 +20,4 @@
 5
 
 #POINT_LIGHT_NUM
-100
+36

@@ -15,6 +15,9 @@ public:
 
 	Color3 calcBtdf(const Vector3& wi ,
 		const Vector3& wo , const Vector3& n);
+
+	Color3 calcRho(const Vector3& wo ,
+		const Vector3& n);
 };
 
 #endif

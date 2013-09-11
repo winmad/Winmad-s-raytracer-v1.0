@@ -6,9 +6,9 @@
 
 void PhotonIntegrator::init(char *filename , Parameters& para)
 {
-    nCausticPhotons = 2000;
+    nCausticPhotons = 20000;
     
-    nIndirectPhotons = 10000;
+    nIndirectPhotons = 100000;
 
     knnPhotons = 50;
 
@@ -16,7 +16,7 @@ void PhotonIntegrator::init(char *filename , Parameters& para)
     
     maxPathLength = 5;
 
-    maxPhotonShot = 50000;
+    maxPhotonShot = 500000;
 
     causticMap = NULL;
     indirectMap = NULL;
@@ -381,8 +381,8 @@ void PhotonIntegrator::visualize(const std::vector<Photon>& photons ,
             continue;
         
         int r , c;
-        r = round((y - viewPort.l.y) / (viewPort.r.y - viewPort.l.y) * (double)height);
-        c = round((x - viewPort.l.x) / (viewPort.r.x - viewPort.l.x) * (double)width);
+        r = (int)(((y - viewPort.l.y) / (viewPort.r.y - viewPort.l.y) * (double)height));
+        c = (int)(((x - viewPort.l.x) / (viewPort.r.x - viewPort.l.x) * (double)width));
         r = std::max(0 , std::min(r , height - 1));
         c = std::max(0 , std::min(c , width - 1));
         cnt[r][c]++;
