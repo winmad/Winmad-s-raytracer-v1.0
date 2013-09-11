@@ -1,3 +1,15 @@
+# Image results
+*.png
+*.bmp
+*.jpg
+
+# Scene Files
+*.scene
+
+# Others
+*.zip
+*.sln
+
 #################
 ## Eclipse
 #################
@@ -65,6 +77,10 @@ local.properties
 
 ## TODO: If you have NuGet Package Restore enabled, uncomment this
 #packages/
+
+# VS2010
+*.vcxproj
+*.filters
 
 # Visual C++ cache files
 ipch/
