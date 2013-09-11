@@ -1,8 +1,11 @@
 #include "IGIIntegrator.h"
+#include <opencv2/opencv.hpp>
+
+//static FILE *fp = fopen("debug_igi.txt" , "w");
 
 void IGIIntegrator::init(char *filename , Parameters& para)
 {
-	threshold = 0.1;
+	threshold = 0.01;
 
 	maxTracingDepth = para.MAX_TRACING_DEPTH;
 	samplesPerPixel = para.SAMPLES_PER_PIXEL;
@@ -55,6 +58,10 @@ void IGIIntegrator::generateVirtualLights()
 				{
 					Color3 contrib = (g->getMaterial().bxdf->calcRho(-ray.dir , inter.n) |
 						alpha) / PI;
+
+					// scale
+					contrib = contrib * 1.0;
+
 					Vector3 reflectDir = getReflectDir(-ray.dir , inter.n);
 					VirtualLight vl = VirtualLight(inter.p + reflectDir * 10.0 * eps ,
 						contrib);
@@ -158,7 +165,10 @@ static Color3 approxIllumination(LightTree& lights ,
 {
 	std::priority_queue<LightCluster> cut;
 	Color3 res = lights.findLightCuts(p , n , wo , g , scene , cut);
-	
+	/*
+	fprintf(fp , "%d\n" , cut.size());
+	fflush(fp);
+	*/
 	res = res / (Real)cut.size();
 	return res;
 	

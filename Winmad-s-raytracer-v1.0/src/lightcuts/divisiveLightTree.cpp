@@ -229,9 +229,9 @@ Color3 LightTree::findLightCuts(const Vector3& p , const Vector3& n ,
 			cut.size() >= maxCutSize)
 			break;
 		// refine
+		cut.pop();
 		if (c.tr->axis == -1)
 			continue;
-		cut.pop();
 		totRadiance = totRadiance - c.contrib;
 
 		LightCluster c1 , c2;
@@ -250,8 +250,10 @@ Color3 LightTree::findLightCuts(const Vector3& p , const Vector3& n ,
 		c2.maxErrorRadiance = err.intensity();
 
 		totRadiance = totRadiance + c1.contrib + c2.contrib;
-		cut.push(c1);
-		cut.push(c2);
+		if (c.tr->left != NULL)
+			cut.push(c1);
+		if (c.tr->right != NULL)
+			cut.push(c2);
 	}
 	return totRadiance;
 }
