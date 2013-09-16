@@ -11,7 +11,7 @@ class IGIIntegrator : public SurfaceIntegrator
 public:
 	static const int NUM_DIRECT_LIGHT = 400;
 
-	static const int NUM_INDIRECT_LIGHT = 100000;
+	static const int NUM_INDIRECT_LIGHT = 40000;
 
 	Real threshold;
 

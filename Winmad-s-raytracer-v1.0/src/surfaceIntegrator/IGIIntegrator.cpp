@@ -5,7 +5,7 @@
 
 void IGIIntegrator::init(char *filename , Parameters& para)
 {
-	threshold = 0.01;
+	threshold = 0.1;
 
 	maxTracingDepth = para.MAX_TRACING_DEPTH;
 	samplesPerPixel = para.SAMPLES_PER_PIXEL;
@@ -60,7 +60,7 @@ void IGIIntegrator::generateVirtualLights()
 						alpha) / PI;
 
 					// scale
-					contrib = contrib * 1.0;
+					contrib = contrib * 0.5;
 
 					Vector3 reflectDir = getReflectDir(-ray.dir , inter.n);
 					VirtualLight vl = VirtualLight(inter.p + reflectDir * 10.0 * eps ,
@@ -192,7 +192,7 @@ Color3 IGIIntegrator::raytracing(const Ray& ray , int dep)
 	
 	res = res + approxIllumination(directLights , 
 			scene , g , inter.p , inter.n , -ray.dir);
-	
+		
 	res = res + approxIllumination(indirectLights , 
 			scene , g , inter.p , inter.n , -ray.dir);
 	
