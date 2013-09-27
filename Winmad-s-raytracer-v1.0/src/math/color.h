@@ -11,6 +11,9 @@ public:
 	Color3() 
 		: r(0.0) , g(0.0) , b(0.0) {}
 
+	Color3(Real val)
+		: r(val) , g(val) , b(val) {}
+
 	Color3(Real r , Real g , Real b)
 		: r(r) , g(g) , b(b) {}
 
@@ -62,8 +65,10 @@ public:
 const Color3 operator +(const Color3& , const Color3&);
 const Color3 operator -(const Color3& , const Color3&);
 const Color3 operator *(const Color3& , const Real&);
-const Color3 operator |(const Color3& , const Color3&);
 const Color3 operator /(const Color3& , const Real&);
+
+// It is not dot product!
+const Color3 operator |(const Color3& , const Color3&);
 
 void printColor3(FILE *fp , const Color3& color);
 

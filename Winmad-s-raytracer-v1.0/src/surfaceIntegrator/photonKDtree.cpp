@@ -8,7 +8,7 @@ static Real get_projection(const Vector3& v , int axis)
 		return v.y;
 	if (axis == 2)
 		return v.z;
-	return inf;
+	return INF;
 }
 
 static int cmp_sort_point(const void *a , const void *b)

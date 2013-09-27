@@ -7,5 +7,5 @@ Real clampVal(Real val , Real minVal , Real maxVal)
 
 int cmp(const Real& x)
 {
-	return ((x < -eps) ? -1 : (x > eps));
+	return ((x < -EPS) ? -1 : (x > EPS));
 }

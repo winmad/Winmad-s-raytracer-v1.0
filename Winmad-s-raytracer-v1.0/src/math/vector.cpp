@@ -34,7 +34,7 @@ const Vector3 operator *(const Vector3& left , const Real& right)
 
 const Vector3 operator /(const Vector3& left , const Real& right)
 {
-	if (cmp(right) == 0) return Vector3(inf , inf , inf);
+	if (cmp(right) == 0) return Vector3(INF);
 	return Vector3(left.x / right , left.y / right , left.z / right);
 }
 
@@ -76,7 +76,7 @@ Vector3 getTransDir(const Vector3& wi , const Vector3& n ,
 	}
 	else
 	{
-		return Vector3(inf , inf , inf);
+		return Vector3(INF);
 	}
 }
 

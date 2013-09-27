@@ -13,11 +13,11 @@ public:
 	void extend()
 	{
 		if (cmp(l.x - r.x) == 0)
-			r.x += 10 * eps;
+			r.x += 10 * EPS;
 		if (cmp(l.y - r.y) == 0)
-			r.y += 10 * eps;
+			r.y += 10 * EPS;
 		if (cmp(l.z - r.z) == 0)
-			r.z += 10 * eps;
+			r.z += 10 * EPS;
 	}
 
 	AABB() {}

@@ -10,8 +10,9 @@
 typedef double Real;
 
 const Real PI = acos(-1.0f);
-const Real eps = 1e-3f;
-const Real inf = 1e10f;
+const Real INV_PI = 1.0f / PI;
+const Real EPS = 1e-3f;
+const Real INF = 1e10f;
 
 Real clampVal(Real val , Real minVal , Real maxVal);
 

@@ -32,7 +32,7 @@ bool Triangle::hit(const Ray& ray , Intersection& inter)
 	Real beta = (J * EIHF + K * GFDI + L * DHEG) / denom;
 	if (cmp(beta) < 0 || cmp(beta - 1) > 0)
 	{
-		inter.t = inf;
+		inter.t = INF;
 		return 0;
 	}
 
@@ -43,14 +43,14 @@ bool Triangle::hit(const Ray& ray , Intersection& inter)
 	Real gamma = (I * AKJB + H * JCAL + G * BLKC) / denom;
 	if (cmp(gamma) < 0 || cmp(beta + gamma - 1) > 0)
 	{
-		inter.t = inf;
+		inter.t = INF;
 		return 0;
 	}
 
 	inter.t = -(F * AKJB + E * JCAL + D * BLKC) / denom;
 	if (cmp(inter.t) <= 0)
 	{
-		inter.t = inf;
+		inter.t = INF;
 		return 0;
 	}
 	inter.p = ray(inter.t);

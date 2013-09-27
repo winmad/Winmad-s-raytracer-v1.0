@@ -8,7 +8,7 @@ static Real get_projection(const Vector3& v , int axis)
 		return v.y;
 	if (axis == 2)
 		return v.z;
-	return inf;
+	return INF;
 }
 
 static KDtreeNode::Axes get_axis(const int &axis)
@@ -100,7 +100,7 @@ static Real SAH(KDtreeNode *tr , int axis , Real plane ,
 
 static void findSplitPlane(KDtreeNode *tr)
 {
-	Real cost = inf;
+	Real cost = INF;
 	tr->axis = KDtreeNode::No_axis;
 	for (int axis = 0; axis < 3; axis++)
 	{
@@ -342,9 +342,9 @@ Geometry* KDtree::traverse(const Ray& ray , KDtreeNode *tr)
 		return NULL;
 	if (tr->axis == KDtreeNode::No_axis)
 	{
-		Real tmp = inf;
+		Real tmp = INF;
 		Intersection inter;
-		inter.t = inf;
+		inter.t = INF;
 		Geometry* res = NULL;
 		for (int i = 0; i < tr->objNum; i++)
 		{

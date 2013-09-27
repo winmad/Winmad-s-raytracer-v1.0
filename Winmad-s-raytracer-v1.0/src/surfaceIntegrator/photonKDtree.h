@@ -23,9 +23,7 @@ public:
     Photon *photon;
     Real sqrDis;
 
-    ClosePhoton() {}
-
-    ClosePhoton(Photon *p = NULL , Real _sqrDis = inf)
+    ClosePhoton(Photon *p = NULL , Real _sqrDis = INF)
     {
         photon = p;
         sqrDis = _sqrDis;

@@ -11,6 +11,9 @@ public:
 	Vector3()
 		: x(0) , y(0) , z(0) {}
 
+	Vector3(Real val)
+		: x(val) , y(val) , z(val) {}
+
 	Vector3(Real x , Real y , Real z)
 		: x(x) , y(y) , z(z) {}
 
@@ -28,7 +31,7 @@ public:
 	Real operator [](int i) const
 	{
 		if (i < 0 || i > 2) 
-			return inf;
+			return INF;
 		if (i == 0) return x;
 		if (i == 1) return y;
 		if (i == 2) return z;
@@ -51,6 +54,11 @@ public:
 		return SQR(x) + SQR(y) + SQR(z);
 	}
 
+	Real leanth()
+	{
+		return sqrt(sqrLength());
+	}
+
 	void normalize()
 	{
 		Real len = sqrt(this->sqrLength());
@@ -61,14 +69,26 @@ public:
 	{
 		return cmp(sqrLength() - 1.0f) == 0;
 	}
+
+	bool hasInf()
+	{
+		return (cmp(x - INF) >= 0 || cmp(y - INF) >= 0 || cmp(z - INF) >= 0);
+	}
 };
 
 const Vector3 operator +(const Vector3& , const Vector3&);
 const Vector3 operator -(const Vector3& , const Vector3&);
+
+// dot product
 const Real operator ^(const Vector3& , const Vector3&);
+
+// It is not dot product!
 const Vector3 operator |(const Vector3& , const Vector3&);
-const Vector3 operator *(const Vector3& , const Real&);
+
+// cross product
 const Vector3 operator *(const Vector3& , const Vector3&);
+
+const Vector3 operator *(const Vector3& , const Real&);
 const Vector3 operator /(const Vector3& , const Real&);
 bool operator ==(const Vector3& , const Vector3&);
 bool operator !=(const Vector3& , const Vector3&);

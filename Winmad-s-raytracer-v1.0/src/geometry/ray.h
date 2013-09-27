@@ -7,10 +7,14 @@ class Ray
 {
 public:
 	Vector3 origin , dir;
+	Real tmin , tmax;
 
-	Ray() {}
-	Ray(Vector3 origin , Vector3 dir)
-		: origin(origin) , dir(dir) {this->dir.normalize();}
+	Ray() : tmin(0.0f) , tmax(INF) {}
+
+	Ray(const Vector3& origin , const Vector3& dir , 
+		Real tmin , Real tmax)
+		: origin(origin) , dir(dir) , 
+		tmin(tmin) , tmax(tmax) {this->dir.normalize();}
 
 	Vector3 operator ()(Real t) const
 	{
