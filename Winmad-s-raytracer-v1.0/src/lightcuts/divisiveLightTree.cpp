@@ -225,7 +225,7 @@ Color3 LightTree::findLightCuts(const Vector3& p , const Vector3& n ,
 	{
 		c = cut.top();
 		if (cmp(c.maxErrorRadiance 
-			- 0.02 * totRadiance.intensity()) <= 0 ||
+			- 0.2 * totRadiance.intensity()) <= 0 ||
 			cut.size() >= maxCutSize)
 			break;
 		// refine

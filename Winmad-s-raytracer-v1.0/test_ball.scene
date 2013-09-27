@@ -8,12 +8,12 @@
 	</viewport>
 	
 	<area_light>
-		<file_path path="F:\\Winmad\\THU\\Computer Graphics\\monte carlo\\Winmad's RayTracer\\Winmad's RayTracer\\ObjFiles\\cbox_luminaire.obj"/>
+		<file_path path="E:\\Winmad\\Winmad-s-raytracer-v1.0\\Winmad-s-raytracer-v1.0\\ObjFiles\\cbox_luminaire.obj"/>
 		<color r="1.0" g="1.0" b="1.0"/>
 	</area_light>
 	
 	<object>
-		<file_path path="F:\\Winmad\\THU\\Computer Graphics\\monte carlo\\Winmad's RayTracer\\Winmad's RayTracer\\ObjFiles\\cbox_back.obj"/>
+		<file_path path="E:\\Winmad\\Winmad-s-raytracer-v1.0\\Winmad-s-raytracer-v1.0\\ObjFiles\\cbox_back.obj"/>
 		<diffuse r="0.725" g="0.71" b="0.68"/>
 		<specular r="0.725" g="0.71" b="0.68"/>
 		<shininess shininess="0"/>
@@ -22,7 +22,7 @@
 	</object>
 	
 	<object>
-		<file_path path="F:\\Winmad\\THU\\Computer Graphics\\monte carlo\\Winmad's RayTracer\\Winmad's RayTracer\\ObjFiles\\cbox_ceiling.obj"/>
+		<file_path path="E:\\Winmad\\Winmad-s-raytracer-v1.0\\Winmad-s-raytracer-v1.0\\ObjFiles\\cbox_ceiling.obj"/>
 		<diffuse r="0.725" g="0.71" b="0.68"/>
 		<specular r="0.725" g="0.71" b="0.68"/>
 		<shininess shininess="0"/>
@@ -31,7 +31,7 @@
 	</object>
 	
 	<object>
-		<file_path path="F:\\Winmad\\THU\\Computer Graphics\\monte carlo\\Winmad's RayTracer\\Winmad's RayTracer\\ObjFiles\\cbox_floor.obj"/>
+		<file_path path="E:\\Winmad\\Winmad-s-raytracer-v1.0\\Winmad-s-raytracer-v1.0\\ObjFiles\\cbox_floor.obj"/>
 		<diffuse r="0.725" g="0.71" b="0.68"/>
 		<specular r="0.725" g="0.71" b="0.68"/>
 		<shininess shininess="0"/>
@@ -40,7 +40,7 @@
 	</object>
 	
 	<object>
-		<file_path path="F:\\Winmad\\THU\\Computer Graphics\\monte carlo\\Winmad's RayTracer\\Winmad's RayTracer\\ObjFiles\\cbox_greenwall.obj"/>
+		<file_path path="E:\\Winmad\\Winmad-s-raytracer-v1.0\\Winmad-s-raytracer-v1.0\\ObjFiles\\cbox_greenwall.obj"/>
 		<diffuse r="0.14" g="0.45" b="0.091"/>
 		<specular r="0.14" g="0.45" b="0.091"/>
 		<shininess shininess="0"/>
@@ -49,7 +49,7 @@
 	</object>
 
 	<object>
-		<file_path path="F:\\Winmad\\THU\\Computer Graphics\\monte carlo\\Winmad's RayTracer\\Winmad's RayTracer\\ObjFiles\\cbox_redwall.obj"/>
+		<file_path path="E:\\Winmad\\Winmad-s-raytracer-v1.0\\Winmad-s-raytracer-v1.0\\ObjFiles\\cbox_redwall.obj"/>
 		<diffuse r="0.63" g="0.065" b="0.05"/>
 		<specular r="0.63" g="0.065" b="0.05"/>
 		<shininess shininess="0"/>
@@ -58,7 +58,7 @@
 	</object>
 	
 	<object>
-		<file_path path="F:\\Winmad\\THU\\Computer Graphics\\monte carlo\\Winmad's RayTracer\\Winmad's RayTracer\\ObjFiles\\cbox_largebox.obj"/>
+		<file_path path="E:\\Winmad\\Winmad-s-raytracer-v1.0\\Winmad-s-raytracer-v1.0\\ObjFiles\\cbox_largebox.obj"/>
 		<diffuse r="0.725" g="0.71" b="0.68"/>
 		<specular r="0.725" g="0.71" b="0.68"/>
 		<shininess shininess="0"/>
