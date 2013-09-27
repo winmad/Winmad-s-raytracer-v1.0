@@ -201,6 +201,10 @@ static Color3 calcMaxErrorBound(const Vector3& p , const Vector3& n ,
 			}
 		}
 	}
+	Color3 tmp = calcRadiance(p , n , wo , g , tr->vl.p , alpha);
+	res.r = std::max(res.r , tmp.r);
+	res.g = std::max(res.g , tmp.g);
+	res.b = std::max(res.b , tmp.b);
 	return res;
 }
 
@@ -221,6 +225,9 @@ Color3 LightTree::findLightCuts(const Vector3& p , const Vector3& n ,
 	c.maxErrorRadiance = err.intensity();
 	cut.push(c);
 
+	// save for temporary
+	std::vector<LightCluster> leaves;
+
 	while (!cut.empty())
 	{
 		c = cut.top();
@@ -229,9 +236,12 @@ Color3 LightTree::findLightCuts(const Vector3& p , const Vector3& n ,
 			cut.size() >= maxCutSize)
 			break;
 		// refine
-		if (c.tr->axis == -1)
-			continue;
 		cut.pop();
+		if (c.tr->axis == -1)
+		{
+			leaves.push_back(c);
+			continue;
+		}
 		totRadiance = totRadiance - c.contrib;
 
 		LightCluster c1 , c2;
@@ -250,8 +260,17 @@ Color3 LightTree::findLightCuts(const Vector3& p , const Vector3& n ,
 		c2.maxErrorRadiance = err.intensity();
 
 		totRadiance = totRadiance + c1.contrib + c2.contrib;
-		cut.push(c1);
-		cut.push(c2);
+		if (c.tr->left != NULL)
+			cut.push(c1);
+		if (c.tr->right != NULL)
+			cut.push(c2);
+	}
+	for (int i = 0; i < leaves.size(); i++)
+	{
+		cut.push(leaves[i]);
+		totRadiance = totRadiance + calcRadiance(p , n , wo , g , 
+			leaves[i].vl.p , leaves[i].vl.alpha) * 
+			calcVisibleTerm(p , leaves[i].vl , scene);
 	}
 	return totRadiance;
 }
