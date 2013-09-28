@@ -169,7 +169,7 @@ static Real calcVisibleTerm(const Vector3& p , const VirtualLight& vl ,
 	wi = vl.p - p;
 	wi.normalize();
 
-	ray = Ray(vl.p - wi * (eps * 10.0) , -wi);
+	ray = Ray(vl.p - wi * (EPS * 10.0) , -wi);
 	if (cmp(scene.shadowRayTest(ray , p)) == 0)
 		vis = 0.0;
 	else 

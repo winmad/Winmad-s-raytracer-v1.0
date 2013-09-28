@@ -151,7 +151,7 @@ void PhotonIntegrator::buildPhotonMap(Scene& scene)
 
 				if (alpha.isBlack())
 					break;
-				photonRay = Ray(inter.p + dir * (10.0 * eps) , dir);
+				photonRay = Ray(inter.p + dir * (10.0 * EPS) , dir);
 
                 /* Possibly terminate by Russian Roulette */
                 if (nIntersections > 3)
@@ -243,7 +243,7 @@ static Color3 directIllumination(Scene& scene , Geometry* g ,
         lightDir = scene.lightlist[k].pos - p;
         lightDir.normalize();
 
-        ray = Ray(scene.lightlist[k].pos - lightDir * (eps * 10.0) , -lightDir);
+        ray = Ray(scene.lightlist[k].pos - lightDir * (EPS * 10.0) , -lightDir);
         if (cmp(scene.shadowRayTest(ray , p)) == 0)
             continue;
         
@@ -266,7 +266,7 @@ static Color3 finalGathering(PhotonKDtree *map , Scene& scene , Geometry *g ,
     for (int i = 0; i < gatherSamples; i++)
     {
         Vector3 wi = sampleDirOnHemisphere(n);
-        Ray ray = Ray(p + wi * (10.0 * eps) , wi);
+        Ray ray = Ray(p + wi * (10.0 * EPS) , wi);
 
         Intersection inter;
         
@@ -314,7 +314,7 @@ Color3 PhotonIntegrator::raytracing(const Ray& ray , int dep)
     if (cmp(g->getMaterial().shininess) > 0)
     {
         Vector3 dir = getReflectDir(-ray.dir , inter.n);
-        reflectRay = Ray(inter.p + dir * (10.0 * eps) , dir);
+        reflectRay = Ray(inter.p + dir * (10.0 * EPS) , dir);
         res = res + raytracing(reflectRay , dep + 1);
     }
 
@@ -323,7 +323,7 @@ Color3 PhotonIntegrator::raytracing(const Ray& ray , int dep)
         Vector3 dir = getTransDir(-ray.dir , inter.n , g->getMaterial().refractionIndex , inter.inside);
         if (dir.isNormal())
         {
-            transRay = Ray(inter.p + dir * (10.0 * eps) , dir);
+            transRay = Ray(inter.p + dir * (10.0 * EPS) , dir);
             res = res + raytracing(transRay , dep + 1);
         }
     }
@@ -371,12 +371,12 @@ void PhotonIntegrator::visualize(const std::vector<Photon>& photons ,
         }
         else
         {
-            t = inf;
+            t = INF;
             x = 0;
             y = 0;
         }
 
-        Ray shadowRay = Ray(p - dir * (10.0 * eps) , -dir);
+        Ray shadowRay = Ray(p - dir * (10.0 * EPS) , -dir);
         if (scene.intersect(shadowRay) != NULL)
             continue;
         

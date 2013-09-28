@@ -3,6 +3,8 @@
 
 #include "math.h"
 #include "vector.h"
+#include "../geometry/AABB.h"
+#include "../geometry/ray.h"
 
 struct Matrix4x4
 {
@@ -81,16 +83,85 @@ public:
 
 	Transform(const Matrix4x4& mat , const Matrix4x4& matInv)
 		: m(mat) , mInv(matInv) {}
+
+	bool isIndentity();
+
+	bool hasScale();
+
+	inline Vector3 tPoint(const Vector3& p);
+
+	inline Vector3 tVector(const Vector3& v);
+
+	inline Vector3 tNormal(const Vector3& n);
+
+	inline Ray tRay(const Ray& r);
+
+	void print(FILE *fp);
 };
 
-Transform transpose(const Transform& t)
+bool operator ==(const Transform& t1 , const Transform& t2);
+bool operator !=(const Transform& t1 , const Transform& t2);
+
+bool operator <(const Transform& t1 , const Transform& t2);
+
+const Transform operator *(const Transform& t1 , const Transform& t2);
+
+Transform transpose(const Transform& t);
+Transform inverse(const Transform& t);
+
+Transform identity();
+Transform translate(const Vector3& delta);
+Transform scale(Real x , Real y , Real z);
+// angle is degree
+Transform rotateX(Real angle);
+Transform rotateY(Real angle);
+Transform rotateZ(Real angle);
+Transform rotate(Real angle , const Vector3& axis);
+Transform lookAt(const Vector3& pos , const Vector3& look ,	const Vector3& up);
+Transform orthographic(Real znear , Real zfar);
+Transform perspective(Real fov , Real znear , Real zfar);
+
+// Transform inline functions
+inline Vector3 Transform::tPoint(const Vector3& p)
 {
-	return Transform(t.mInv , t.m);
+	Real x = p.x , y = p.y , z = p.z;
+	Real xp = m.m[0][0] * x + m.m[0][1] * y + m.m[0][2] * z + m.m[0][3];
+	Real yp = m.m[1][0] * x + m.m[1][1] * y + m.m[1][2] * z + m.m[1][3];
+	Real zp = m.m[2][0] * x + m.m[2][1] * y + m.m[2][2] * z + m.m[2][3];
+	Real wp = m.m[3][0] * x + m.m[3][1] * y + m.m[3][2] * z + m.m[3][3];
+	
+	assert(wp != 0);
+
+	if (cmp(wp - 1.0f) == 0)
+		return Vector3(xp , yp , zp);
+	else
+		return Vector3(xp , yp , zp) / wp;
 }
 
-Transform inverse(const Transform& t)
+inline Vector3 Transform::tVector(const Vector3& v)
 {
-	return Transform(transpose(t.m) , transpose(t.mInv));
+	Real x = v.x , y = v.y , z = v.z;
+	Real xp = m.m[0][0] * x + m.m[0][1] * y + m.m[0][2] * z;
+	Real yp = m.m[1][0] * x + m.m[1][1] * y + m.m[1][2] * z;
+	Real zp = m.m[2][0] * x + m.m[2][1] * y + m.m[2][2] * z;
+	return Vector3(xp , yp , zp);
+}
+
+inline Vector3 Transform::tNormal(const Vector3& n)
+{
+	Real x = n.x , y = n.y , z = n.z;
+	Real xp = mInv.m[0][0] * x + mInv.m[1][0] * y + mInv.m[2][0] * z;
+	Real yp = mInv.m[0][1] * x + mInv.m[1][1] * y + mInv.m[2][1] * z;
+	Real zp = mInv.m[0][2] * x + mInv.m[1][2] * y + mInv.m[2][2] * z;
+	return Vector3(xp , yp , zp);
+}
+
+inline Ray Transform::tRay(const Ray& r)
+{
+	Ray res;
+	res.origin = tPoint(r.origin);
+	res.dir = tVector(r.dir);
+	return res;
 }
 
 #endif

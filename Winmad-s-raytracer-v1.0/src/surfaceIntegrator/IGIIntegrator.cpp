@@ -63,7 +63,7 @@ void IGIIntegrator::generateVirtualLights()
 					contrib = contrib * 0.5;
 
 					Vector3 reflectDir = getReflectDir(-ray.dir , inter.n);
-					VirtualLight vl = VirtualLight(inter.p + reflectDir * 10.0 * eps ,
+					VirtualLight vl = VirtualLight(inter.p + reflectDir * 10.0 * EPS ,
 						contrib);
 					_indirectLights.push_back(vl);
 					n++;
@@ -108,7 +108,7 @@ void IGIIntegrator::generateVirtualLights()
 
 				if (cmp(alpha.intensity() - threshold) < 0)
 					break;
-				ray = Ray(inter.p + dir * (10.0 * eps) , dir);
+				ray = Ray(inter.p + dir * (10.0 * EPS) , dir);
 
                 /* Possibly terminate by Russian Roulette */
                 if (nIntersections > 3)
@@ -144,7 +144,7 @@ static Color3 approxIllumination(const std::vector<VirtualLight>& lights ,
 		wi = lights[i].p - p;
 		wi.normalize();
 
-		ray = Ray(lights[i].p - wi * (eps * 10.0) , -wi);
+		ray = Ray(lights[i].p - wi * (EPS * 10.0) , -wi);
 		if (cmp(scene.shadowRayTest(ray , p)) == 0)
 			continue;
 
@@ -170,9 +170,6 @@ static Color3 approxIllumination(LightTree& lights ,
 	fflush(fp);
 	*/
 	res = res / (Real)cut.size();
-
-	fprintf(fp , "%d\n" , cut.size());
-	fflush(fp);
 
 	return res;
 }
@@ -202,7 +199,7 @@ Color3 IGIIntegrator::raytracing(const Ray& ray , int dep)
 	if (cmp(g->getMaterial().shininess) > 0)
 	{
 		Vector3 dir = getReflectDir(-ray.dir , inter.n);
-		reflectRay = Ray(inter.p + dir * (10.0 * eps) , dir);
+		reflectRay = Ray(inter.p + dir * (10.0 * EPS) , dir);
 		res = res + raytracing(reflectRay , dep + 1);
 	}
 
@@ -211,7 +208,7 @@ Color3 IGIIntegrator::raytracing(const Ray& ray , int dep)
 		Vector3 dir = getTransDir(-ray.dir , inter.n , g->getMaterial().refractionIndex , inter.inside);
 		if (dir.isNormal())
 		{
-			transRay = Ray(inter.p + dir * (10.0 * eps) , dir);
+			transRay = Ray(inter.p + dir * (10.0 * EPS) , dir);
 			res = res + raytracing(transRay , dep + 1);
 		}
 	}

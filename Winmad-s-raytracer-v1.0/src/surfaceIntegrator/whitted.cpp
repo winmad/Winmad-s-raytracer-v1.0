@@ -52,7 +52,7 @@ Color3 WhittedIntegrator::raytracing(const Ray& ray , int dep)
 	if (g->getMaterial().shininess > 0)
 	{
 		reflectDir = getReflectDir(wo , inter.n);
-		reflectRay = Ray(inter.p + reflectDir * (2 * eps) , reflectDir);
+		reflectRay = Ray(inter.p + reflectDir * (2 * EPS) , reflectDir);
 		reflectRes = raytracing(reflectRay , dep + 1);
 	}
 
@@ -63,7 +63,7 @@ Color3 WhittedIntegrator::raytracing(const Ray& ray , int dep)
 			g->getMaterial().refractionIndex , inter.inside);
 		if (transDir.isNormal())
 		{
-			transRay = Ray(inter.p + transDir * (2 * eps) , transDir);
+			transRay = Ray(inter.p + transDir * (2 * EPS) , transDir);
 			transRes = raytracing(transRay , dep + 1);
 		}
 		else

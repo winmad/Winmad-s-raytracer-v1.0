@@ -11,6 +11,10 @@ public:
 
 	Ray() : tmin(0.0f) , tmax(INF) {}
 
+	Ray(const Vector3& origin , const Vector3& dir)
+		: origin(origin) , dir(dir) ,
+		tmin(0.0f) , tmax(INF) {this->dir.normalize();}
+
 	Ray(const Vector3& origin , const Vector3& dir , 
 		Real tmin , Real tmax)
 		: origin(origin) , dir(dir) , 

@@ -3,6 +3,7 @@
 #include "surfaceIntegrator/pathIntegrator.h"
 #include "surfaceIntegrator/photonMap.h"
 #include "surfaceIntegrator/IGIIntegrator.h"
+#include "test/testTransform.h"
 #include "parameters.h"
 #include <opencv2/opencv.hpp>
 #include "tinyxml/tinyxml.h"
@@ -15,6 +16,8 @@ IGIIntegrator igiIntegrator;
 
 int main(int argc , char* argv[])
 {
+	testAll();
+	/*
     para.load_parameters("src/parameters.para");
 	if (!strcmp(argv[3] , "-r"))
 	{
@@ -43,5 +46,6 @@ int main(int argc , char* argv[])
 	{
 		printf("error!\n");
 	}
+	*/
 	return 0;
 }

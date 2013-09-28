@@ -34,7 +34,7 @@ static Color3 directIllumination(PathIntegrator& pathIntegrator ,
         wi = pathIntegrator.scene.lightlist[k].pos - p;
         wi.normalize();
 
-        ray = Ray(pathIntegrator.scene.lightlist[k].pos - wi * (eps * 10.0) ,
+        ray = Ray(pathIntegrator.scene.lightlist[k].pos - wi * (EPS * 10.0) ,
 			-wi);
         if (cmp(pathIntegrator.scene.shadowRayTest(ray , p)) == 0)
 			continue;
@@ -73,7 +73,7 @@ static Color3 indirectIllumination(PathIntegrator& pathIntegrator, Geometry* g ,
     for (int i = 0; i < pathIntegrator.samplesOfHemisphere; i++)
     {
         wi = sampleDirOnHemisphere(n);
-        ray = Ray(p + wi * (eps * 10.0) , wi);
+        ray = Ray(p + wi * (EPS * 10.0) , wi);
         tmp = pathIntegrator.raytracing(ray , dep + 1);
 
         brdf = g->getMaterial().bxdf->calcBrdf(wi , wo , n);
@@ -111,7 +111,7 @@ Color3 PathIntegrator::raytracing(const Ray& ray , int dep)
         
         if (transDir.isNormal())
         {
-            Ray transRay = Ray(inter.p + transDir * (eps * 10.0) , transDir);
+            Ray transRay = Ray(inter.p + transDir * (EPS * 10.0) , transDir);
             transRes = raytracing(transRay , dep + 1);
             transRes = transRes * g->getMaterial().transparency;
         }

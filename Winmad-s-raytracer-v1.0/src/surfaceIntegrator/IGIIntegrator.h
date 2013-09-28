@@ -36,8 +36,6 @@ public:
 	void init(char *filename , Parameters& para);
 
 	Color3 raytracing(const Ray& ray , int dep);
-
-	void IGIIntegrator::render(char *filename);
 };
 
 #endif
