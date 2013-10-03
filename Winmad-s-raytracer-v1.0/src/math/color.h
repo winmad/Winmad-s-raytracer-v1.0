@@ -36,7 +36,7 @@ public:
 
 	Real intensity()
 	{
-		return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+		return 0.2126f * r + 0.7152f * g + 0.0722f * b;
 	}
 
 	void clamp()

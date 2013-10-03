@@ -117,6 +117,7 @@ Transform rotateX(Real angle);
 Transform rotateY(Real angle);
 Transform rotateZ(Real angle);
 Transform rotate(Real angle , const Vector3& axis);
+// worldToCamera , cameraToWorld
 Transform lookAt(const Vector3& pos , const Vector3& look ,	const Vector3& up);
 Transform orthographic(Real znear , Real zfar);
 Transform perspective(Real fov , Real znear , Real zfar);

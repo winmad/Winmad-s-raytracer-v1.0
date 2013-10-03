@@ -48,6 +48,14 @@ bool Sphere::hit(const Ray& ray , Intersection& inter)
 			inter.inside = 0;
 		}
 	}
+
+	if (cmp(inter.t - ray.tmin) < 0 ||
+		cmp(inter.t - ray.tmax) > 0)
+	{
+		inter.t = INF;
+		return 0;
+	}
+
 	inter.p = ray(inter.t);
 	inter.n = inter.p - center;
 	inter.n.normalize();

@@ -9,7 +9,7 @@
 
 #define SQR(x) ((x) * (x))
 
-typedef double Real;
+typedef float Real;
 
 const Real PI = acos(-1.0f);
 const Real INV_PI = 1.0f / PI;

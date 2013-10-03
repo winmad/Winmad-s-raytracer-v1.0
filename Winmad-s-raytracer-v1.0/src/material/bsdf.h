@@ -1,43 +1,49 @@
-#ifndef BXDF_H
-#define BXDF_H
+#ifndef BSDF_H
+#define BSDF_H
 
 #include "../math/color.h"
 #include "../math/vector.h"
+#include "../math/frame.h"
 #include "../geometry/intersection.h"
 
-enum BxDFType
+enum BSDFType
 {
 	BSDF_REFLECTION = 1 << 0,
 	BSDF_TRANSMISSION = 1 << 1,
 
 	BSDF_DIFFUSE = 1 << 2,
 	BSDF_GLOSSY = 1 << 3,
-	BSDF_SPECULAR = 1 << 4,
+	
+	BSDF_SPECULAR = BSDF_REFLECTION |
+					BSDF_TRANSMISSION,
 
-	BSDF_ALL_TYPES = BSDF_DIFFUSE |
-					 BSDF_GLOSSY |
-					 BSDF_SPECULAR,
+	BSDF_NON_SPECULAR = BSDF_DIFFUSE |
+						BSDF_GLOSSY,
 
-	BSDF_ALL_REFLECTION = BSDF_REFLECTION |
-						  BSDF_ALL_TYPES,
-
-	BSDF_ALL_TRANSMISSION = BSDF_TRANSMISSION |
-							BSDF_ALL_TYPES,
-
-	BSDF_ALL = BSDF_ALL_REFLECTION | 
-			   BSDF_ALL_TRANSMISSION
+	BSDF_ALL = BSDF_SPECULAR | 
+			   BSDF_NON_SPECULAR
 };
 
-class BxDF
+class BSDF
 {
 public:
-	BxDFType type;
+	BSDFType type;
 
-	Color3 kd , ks;
+	int matId;
 
-	BxDF() {}
+	Frame local;
 
-	BxDF(BxDFType t) 
+	Vector3 wiLocalFix;
+
+	bool isDelta; // true if material is purely specular
+
+	Real continueProb; // used for Russian roulette
+
+	Real fresnelReflect; // Fresnel reflection coefficient
+
+	BSDF() : matId(-1) {}
+
+	BSDF(BxDFType t) 
 		: type(t) {}
 
 	bool MatchType(BxDFType t)

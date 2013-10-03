@@ -86,6 +86,7 @@ void Scene::loadScene()
 // load .scene, xml format
 void Scene::loadScene(char* filename)
 {
+	/*
 	TiXmlDocument doc = TiXmlDocument(filename);
 	doc.LoadFile();
 
@@ -244,6 +245,7 @@ void Scene::loadScene(char* filename)
 		}
 		it = it->NextSiblingElement();
 	}
+	*/
 }
 
 void Scene::init(char* filename , Parameters& para)
