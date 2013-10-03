@@ -233,12 +233,12 @@ bool Transform::hasScale()
 			cmp(lz2 - 1.0f) != 0);
 }
 
-Transform transpose(const Transform& t)
+Transform inverse(const Transform& t)
 {
 	return Transform(t.mInv , t.m);
 }
 
-Transform inverse(const Transform& t)
+Transform transpose(const Transform& t)
 {
 	return Transform(transpose(t.m) , transpose(t.mInv));
 }
@@ -347,4 +347,41 @@ Transform rotate(Real angle , const Vector3& axis)
 
 	Matrix4x4 mat(m);
 	return Transform(mat , transpose(mat));
+}
+
+// _up -> x axis, _left -> y axis, -_dir -> z axis
+Transform lookAt(const Vector3& pos , const Vector3& look , 
+	const Vector3& up)
+{
+	Vector3 _dir = look - pos;
+	_dir.normalize();
+	Vector3 _up = up * (-_dir);
+	_up.normalize();
+	Vector3 _left = _up * _dir;
+
+	Matrix4x4 worldToCamera;
+	Vector3 p(_up ^ pos , _left ^ pos , -_dir ^ pos);
+
+	worldToCamera.setRow(0 , _up , -p.x);
+	worldToCamera.setRow(1 , _left , -p.y);
+	worldToCamera.setRow(2 , -_dir , -p.z);
+
+	return Transform(worldToCamera , inverse(worldToCamera));
+}
+
+Transform orthographic(Real znear , Real zfar)
+{
+	return scale(1.0f , 1.0f , 1.0f / (zfar - znear)) *
+		translate(Vector3(0.0f , 0.0f , -znear));
+}
+
+// camera points towards -z
+Transform perspective(Real fov , Real znear , Real zfar)
+{
+	Matrix4x4 persp = Matrix4x4(1 , 0 , 0 , 0 ,
+								0 , -1 , 0 , 0 ,
+								0 , 0 , (znear + zfar) / (zfar - znear) , 2 * zfar * znear / (zfar - znear) ,
+								0 , 0 , -1 , 0);
+	Real invTanAng = 1.0f / tanf(fov / 360.0f * PI);
+	return scale(invTanAng , invTanAng , 1) * Transform(persp);
 }

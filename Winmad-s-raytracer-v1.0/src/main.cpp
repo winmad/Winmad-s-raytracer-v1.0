@@ -3,7 +3,7 @@
 #include "surfaceIntegrator/pathIntegrator.h"
 #include "surfaceIntegrator/photonMap.h"
 #include "surfaceIntegrator/IGIIntegrator.h"
-#include "test/testTransform.h"
+#include "test/test.h"
 #include "parameters.h"
 #include <opencv2/opencv.hpp>
 #include "tinyxml/tinyxml.h"

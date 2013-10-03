@@ -82,5 +82,5 @@ Vector3 getTransDir(const Vector3& wi , const Vector3& n ,
 
 void printVector3(FILE *fp , const Vector3& v)
 {
-	fprintf(fp , "(%.3lf,%.3lf,%.3lf)" , v.x , v.y , v.z);
+	fprintf(fp , "(%.3lf,%.3lf,%.3lf)\n" , v.x , v.y , v.z);
 }

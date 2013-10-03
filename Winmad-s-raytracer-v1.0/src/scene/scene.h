@@ -7,6 +7,7 @@
 #include "../geometry/triangle.h"
 #include "../geometry/mesh.h"
 #include "../geometry/intersection.h"
+#include "camera.h"
 #include "light.h"
 #include "KDtree.h"
 #include "../parameters.h"

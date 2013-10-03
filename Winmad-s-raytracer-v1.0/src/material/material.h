@@ -3,36 +3,30 @@
 
 #include "../math/color.h"
 #include "../math/vector.h"
-#include "bxdf.h"
-#include "phong.h"
 
 class Material
 {
 public:
-	BxDF *bxdf;
+	Color3 diffuse;
 
-	Real shininess;
-	Real transparency;
-	Real refractionIndex;
+	Color3 phongReflectance;
+	Real phongExp;
+
+	Color3 specular;
+	Real index; // index of refraction
 
 	Material() 
 	{
-		bxdf = new Phong();
-
-		shininess = 0.0;
-		transparency = 0.0;
-		refractionIndex = 0.0;
+		init();
 	}
 
-	void setMaterial(const Color3& _kd , const Color3& _ks ,
-		const Real& _shininess , const Real& _transparency , 
-		const Real& _refractionIndex)
+	void init()
 	{
-		bxdf->kd = _kd;
-		bxdf->ks = _ks;
-		shininess = _shininess;
-		transparency = _transparency;
-		refractionIndex = _refractionIndex;
+		diffuse = Color3(0);
+		phongReflectance = Color3(0);
+		phongExp = 1;
+		specular = Color3(0);
+		index = -1;
 	}
 };
 
