@@ -68,4 +68,3 @@ void SurfaceIntegrator::render(char *filename)
 	}
 	cvSaveImage(filename , img);
 }
-
