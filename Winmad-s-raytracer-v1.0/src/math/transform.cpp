@@ -348,3 +348,4 @@ Transform rotate(Real angle , const Vector3& axis)
 	Matrix4x4 mat(m);
 	return Transform(mat , transpose(mat));
 }
+
