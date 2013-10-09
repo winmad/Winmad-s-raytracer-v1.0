@@ -151,6 +151,13 @@ void Scene::loadScene()
 	// right wall
 	addGeometry(new Triangle(cb[1] , cb[5] , cb[6] , 4));
 	addGeometry(new Triangle(cb[6] , cb[2] , cb[1] , 4));
+	// balls - central
+	/*
+	Real largeRadius = 0.8f;
+	Vector3 center = (cb[0] + cb[1] + cb[4] + cb[5]) * 0.25f +
+		Vector3(0 , 0 , largeRadius);
+	addGeometry(new Sphere(center , largeRadius , 6));
+	*/
 	// balls - left and right
 	Real smallRadius = 0.5f;
 	Vector3 leftWallCenter = (cb[0] + cb[4]) * 0.5f +

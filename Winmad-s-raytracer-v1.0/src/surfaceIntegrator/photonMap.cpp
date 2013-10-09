@@ -25,18 +25,13 @@ void PhotonIntegrator::init(char *filename , Parameters& para)
     samplesPerPixel = para.SAMPLES_PER_PIXEL;
 
     scene.init(filename , para);
-    viewPort = scene.viewPort;
 
 	height = para.HEIGHT; width = para.WIDTH;
-
-	viewPort.delta.x = (viewPort.r.x - viewPort.l.x) / (Real)width;
-	viewPort.delta.y = (viewPort.r.y - viewPort.l.y) / (Real)height;
-	viewPort.delta.z = 0.0;
 }
 
 void PhotonIntegrator::buildPhotonMap(Scene& scene)
 {
-    if (scene.lightlist.size() <= 0)
+    if (scene.lights.size() <= 0)
         return;
 
     causticPhotons.clear();
@@ -54,8 +49,8 @@ void PhotonIntegrator::buildPhotonMap(Scene& scene)
         nShot++;
 
         /* generate initial photon ray */
-        int k = rand() % (int)scene.lightlist.size();
-        Color3 alpha = scene.lightlist[k].color;
+        int k = (int)(rng.randFloat() * scene.lights.size());
+        Color3 alpha = scene.lights[k]->getIntensity();
         
         Vector3 dir = uniformSampleDirOnSphere();
         Ray photonRay = Ray(scene.lightlist[k].pos , dir);

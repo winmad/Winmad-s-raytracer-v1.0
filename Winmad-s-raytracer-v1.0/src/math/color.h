@@ -51,6 +51,14 @@ public:
 		b = clampVal(b , 0.0 , 1.0);
 	}
 	
+	void gamma(Real _gamma)
+	{
+		Real invGamma = 1.f / _gamma;
+		r = std::pow(r , invGamma);
+		g = std::pow(g , invGamma);
+		b = std::pow(b , invGamma);
+	}
+
 	unsigned char R()
 	{
 		return (unsigned char)(r * 255.0);
