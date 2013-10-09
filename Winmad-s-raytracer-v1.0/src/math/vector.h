@@ -54,7 +54,7 @@ public:
 		return SQR(x) + SQR(y) + SQR(z);
 	}
 
-	Real leanth()
+	Real length()
 	{
 		return sqrt(sqrLength());
 	}

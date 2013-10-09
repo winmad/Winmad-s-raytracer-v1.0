@@ -7,16 +7,43 @@ void WhittedIntegrator::init(char *filename , Parameters& para)
 	samplesPerPixel = para.SAMPLES_PER_PIXEL;
 
 	scene.init(filename , para);
-	viewPort = scene.viewPort;
 
 	height = para.HEIGHT; width = para.WIDTH;
-
-	viewPort.delta.x = (viewPort.r.x - viewPort.l.x) / (Real)width;
-	viewPort.delta.y = (viewPort.r.y - viewPort.l.y) / (Real)height;
-	viewPort.delta.z = 0.0;
 }
 
 //static FILE *fp = fopen("debug_whitted.txt" , "w");
+
+static Color3 directIllumination(WhittedIntegrator& integrator ,
+	const Intersection& inter , const Vector3& wo)
+{
+	Color3 res = Color3(0);
+	Real dist , directPdf , emissionPdf , cosAtLight;
+	Vector3 wi;
+
+	int LIGHT_SAMPLE_NUM = 1;
+	for (int i = 0; i < LIGHT_SAMPLE_NUM; i++)
+	{
+		int k = rand() % integrator.scene.lights.size();
+
+		Color3 illu = integrator.scene.lights[k]->illuminance(
+			integrator.scene.sceneSphere , inter.p , 
+			integrator.rng.randVector3() , wi , dist ,
+			directPdf , &emissionPdf , &cosAtLight);
+
+		if (integrator.scene.occluded(inter.p , wi , inter.p + wi * dist))
+			continue;
+
+		BSDF bsdf(wi , inter , integrator.scene);
+		Real cosWo;
+
+		Color3 tmp = (illu * cosAtLight / emissionPdf)
+			| bsdf.f(integrator.scene , wo , cosWo);
+
+		res = res + tmp * cosWo;
+	}
+	res = res / LIGHT_SAMPLE_NUM;
+	return res;
+}
 
 Color3 WhittedIntegrator::raytracing(const Ray& ray , int dep)
 {
@@ -31,39 +58,36 @@ Color3 WhittedIntegrator::raytracing(const Ray& ray , int dep)
 	if (g == NULL)
 		return Color3(0.0 , 0.0 , 0.0);
 
-	Color3 phongRes , reflectRes , transRes;
+	if (inter.matId < 0)
+	{
+		AbstractLight *l = scene.lights[-inter.matId - 1];
+		return l->getRadiance(scene.sceneSphere , ray.dir , inter.p);
+	}
+
+	Color3 directRes , reflectRes , transRes;
 	Vector3 reflectDir , transDir;
 	Ray reflectRay , transRay;
+	
+	BSDF bsdf(-ray.dir , inter , scene);
 
-	Ray shadowRay = Ray(scene.lightlist[0].pos ,
-		inter.p - scene.lightlist[0].pos);
-	Real directCoe = scene.shadowRayTest(shadowRay , inter.p);
-
-	Vector3 wi , wo;
-	wi = scene.lightlist[0].pos - inter.p;
-	wi.normalize();
-	wo = -ray.dir;
-	wo.normalize();
-
-	Color3 brdf = g->getMaterial().bxdf->calcBrdf(wi , wo , inter.n);
-	phongRes = scene.lightlist[0].color | brdf;
-	phongRes = phongRes * clampVal(wi ^ inter.n , 0.0 , 1.0);
-
-	if (g->getMaterial().shininess > 0)
+	directRes = directIllumination(*this , inter , -ray.dir) *
+		(bsdf.componentProb.diffuseProb + bsdf.componentProb.glossyProb);
+	
+	if (cmp(bsdf.componentProb.reflectProb) > 0)
 	{
-		reflectDir = getReflectDir(wo , inter.n);
-		reflectRay = Ray(inter.p + reflectDir * (2 * EPS) , reflectDir);
+		reflectDir = getReflectDir(-ray.dir , inter.n);
+		reflectRay = Ray(inter.p + reflectDir * EPS , reflectDir);
 		reflectRes = raytracing(reflectRay , dep + 1);
 	}
 
-	if (g->getMaterial().transparency > 0 &&
-		cmp(g->getMaterial().refractionIndex) != 0)
+	if (cmp(bsdf.componentProb.transProb) > 0 &&
+		cmp(scene.materials[bsdf.matId].index) > 0)
 	{
-		transDir = getTransDir(wo , inter.n , 
-			g->getMaterial().refractionIndex , inter.inside);
+		transDir = getTransDir(-ray.dir , inter.n , 
+			scene.materials[bsdf.matId].index , inter.inside);
 		if (transDir.isNormal())
 		{
-			transRay = Ray(inter.p + transDir * (2 * EPS) , transDir);
+			transRay = Ray(inter.p + transDir * EPS , transDir);
 			transRes = raytracing(transRay , dep + 1);
 		}
 		else
@@ -73,9 +97,9 @@ Color3 WhittedIntegrator::raytracing(const Ray& ray , int dep)
 	}
 
 	Color3 res;
-	res = phongRes * (1 - inter.inside) + 
-		reflectRes * g->getMaterial().shininess +
-		transRes * g->getMaterial().transparency;
+	res = directRes + 
+		reflectRes * bsdf.componentProb.reflectProb +
+		transRes * bsdf.componentProb.transProb;
     /*
     fprintf(fp , "reflect = ");
     print_color3(fp , reflectRes);

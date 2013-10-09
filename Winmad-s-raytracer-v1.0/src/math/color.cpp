@@ -30,7 +30,12 @@ const Color3 operator /(const Color3& left , const Real& right)
 	return res;
 }
 
+Real luminance(const Color3& c)
+{
+	return 0.2126f * c.r + 0.7152f * c.g + 0.0722f * c.b;
+}
+
 void printColor3(FILE *fp , const Color3& color)
 {
-	fprintf(fp , "(%.3lf,%.3lf,%.3lf)" , color.r , color.g , color.b);
+	fprintf(fp , "(%.3lf,%.3lf,%.3lf)\n" , color.r , color.g , color.b);
 }

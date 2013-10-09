@@ -6,10 +6,9 @@ void Geometry::setBox()
 {
 }
 
-Material& Geometry::getMaterial()
+int Geometry::getMatId()
 {
-	Material material;
-	return material;
+	return 0;
 }
 
 bool Geometry::hit(const Ray& ray , Intersection& inter) 

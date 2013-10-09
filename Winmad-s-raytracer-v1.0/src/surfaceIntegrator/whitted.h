@@ -4,6 +4,7 @@
 #include "../math/color.h"
 #include "../math/vector.h"
 #include "../scene/scene.h"
+#include "../material/bsdf.h"
 #include "../parameters.h"
 #include "surfaceIntegrator.h"
 

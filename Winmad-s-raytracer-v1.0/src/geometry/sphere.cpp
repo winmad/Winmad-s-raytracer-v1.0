@@ -1,8 +1,8 @@
 #include "sphere.h"
 
-Material& Sphere::getMaterial()
+int Sphere::getMatId()
 {
-	return material;
+	return matId;
 }
 
 bool Sphere::hit(const Ray& ray , Intersection& inter)
@@ -59,5 +59,6 @@ bool Sphere::hit(const Ray& ray , Intersection& inter)
 	inter.p = ray(inter.t);
 	inter.n = inter.p - center;
 	inter.n.normalize();
+	inter.matId = matId;
 	return 1;
 }

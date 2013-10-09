@@ -33,15 +33,19 @@ void testCamera()
 {
 	Camera camera;
 	camera.setup(
-		Vector3(-0.0439815f, -4.12529f, 0.222539f),
-		Vector3(0.00688625f, 0.998505f, -0.0542161f),
-		Vector3(3.73896e-4f, 0.0542148f, 0.998529f),
-		512 , 512 , 45);
+		Vector3(0, 0, 1),
+		Vector3(0, 0, -1),
+		Vector3(0, 1, 0),
+		512 , 512 , 90);
 
-	camera.worldToRaster.print(fp);
-	camera.rasterToWorld.print(fp);
-	Transform res = camera.worldToRaster * camera.rasterToWorld;
-	res.print(fp);
+	Vector3 p(-1 , 0 , 0);
+	Vector3 t1 = camera.worldToCamera.tPoint(p);
+	Vector3 t2 = camera.worldToRaster.tPoint(p);
+	Vector3 q(256 , 256 , 0);
+	Vector3 t3 = camera.rasterToWorld.tPoint(q);
+	printVector3(fp , t1);
+	printVector3(fp , t2);
+	printVector3(fp , t3);
 }
 
 void testAll()

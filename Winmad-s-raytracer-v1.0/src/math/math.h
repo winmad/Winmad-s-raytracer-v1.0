@@ -20,4 +20,8 @@ Real clampVal(Real val , Real minVal , Real maxVal);
 
 int cmp(const Real& x);
 
+Real pdfWtoA(const Real pdfW , const Real dist , const Real cos);
+
+Real pdfAtoW(const Real pdfA , const Real dist , const Real cos);
+
 #endif

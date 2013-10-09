@@ -1,8 +1,8 @@
 #include "triangle.h"
 
-Material& Triangle::getMaterial()
+int Triangle::getMatId()
 {
-	return material;
+	return matId;
 }
 
 bool Triangle::hit(const Ray& ray , Intersection& inter)
@@ -68,5 +68,6 @@ bool Triangle::hit(const Ray& ray , Intersection& inter)
 		inter.inside = 0;
 	else 
 		inter.inside = 1;
+	inter.matId = matId;
 	return 1;
 }

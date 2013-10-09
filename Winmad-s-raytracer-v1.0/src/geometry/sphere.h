@@ -10,8 +10,7 @@ class Sphere : public Geometry
 public:
 	Vector3 center;
 	Real radius;
-
-	Material material;
+	int matId;
 
 	void setBox()
 	{
@@ -22,8 +21,8 @@ public:
 
 	Sphere() {}
 
-	Sphere(Vector3 c , Real r)
-		: center(c) , radius(r)
+	Sphere(Vector3 c , Real r , int matId)
+		: center(c) , radius(r) , matId(matId)
 	{
 		setBox();
 	}
@@ -35,7 +34,7 @@ public:
 	
 	~Sphere() {}
 
-	Material& getMaterial();
+	int getMatId();
 
 	bool hit(const Ray& ray , Intersection& inter);
 };

@@ -10,7 +10,7 @@ class Triangle : public Geometry
 public:
 	Vector3 p0 , p1 , p2;
 
-	Material material;
+	int matId;
 
 	void setBox()
 	{
@@ -24,15 +24,15 @@ public:
 
 	Triangle() {}
 	
-	Triangle(Vector3 _p0 , Vector3 _p1 , Vector3 _p2)
-		: p0(_p0) , p1(_p1) , p2(_p2)
+	Triangle(Vector3 _p0 , Vector3 _p1 , Vector3 _p2 , int matId)
+		: p0(_p0) , p1(_p1) , p2(_p2) , matId(matId)
 	{
 		setBox();
 	}
 
 	~Triangle() {}
 
-	Material& getMaterial();
+	int getMatId();
 
 	bool hit(const Ray& ray , Intersection& inter);
 };

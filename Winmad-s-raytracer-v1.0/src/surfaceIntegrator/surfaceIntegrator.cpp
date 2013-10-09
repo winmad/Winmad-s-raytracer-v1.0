@@ -16,32 +16,23 @@ void SurfaceIntegrator::render(char *filename)
 	img = cvCreateImage(cvSize(width , height) , 
 		IPL_DEPTH_8U , 3);
 	Color3 res;
-	Real y = viewPort.l.y;
 	for (int i = 0; i < height; i++)
 	{
-		Real x = viewPort.l.x;
 		for (int j = 0; j < width; j++)
 		{
             res = Color3(0.0 , 0.0 , 0.0);
+
             for (int k = 0; k < samplesPerPixel; k++)
             {
-                Vector3 v0 = Vector3(x - 0.5 * viewPort.delta.x ,
-                                     y - 0.5 * viewPort.delta.y ,
-                                     viewPort.l.z);
+                Vector3 v0 = Vector3(j - 0.5 , i - 0.5 , 0);
+                Vector3 v1 = Vector3(j + 0.5 , i - 0.5 , 0);
+				Vector3 v2 = Vector3(j - 0.5 , i + 0.5 , 0);
                 
-                Vector3 v1 = Vector3(x + 0.5 * viewPort.delta.x ,
-                                     y - 0.5 * viewPort.delta.y ,
-                                     viewPort.l.z);
+                Vector3 posRaster = sampleRectangleStratified(
+                    rng.randVector3() ,
+					v0 , v1 , v2 , k , samplesPerPixel);
                 
-                Vector3 v2 = Vector3(x - 0.5 * viewPort.delta.x ,
-                                     y + 0.5 * viewPort.delta.y ,
-                                     viewPort.l.z);
-                
-                Vector3 pos_on_viewport = sampleOnRectangleStratified(
-                    v0 , v1 , v2 , k , samplesPerPixel);
-                
-                Ray ray = Ray(scene.camera , 
-                              pos_on_viewport - scene.camera);
+                Ray ray = scene.camera.generateRay(posRaster.x , posRaster.y);
 
                 Color3 tmp = raytracing(ray , 0);
                 tmp.clamp();
@@ -58,13 +49,10 @@ void SurfaceIntegrator::render(char *filename)
 			int channels = img->nChannels;
 
 			uchar *data = (uchar*)img->imageData;
-			data[(h - i - 1) * step + j * channels + 0] = res.B();
-			data[(h - i - 1) * step + j * channels + 1] = res.G();
-			data[(h - i - 1) * step + j * channels + 2] = res.R();
-
-			x += viewPort.delta.x;
+			data[i * step + j * channels + 0] = res.B();
+			data[i * step + j * channels + 1] = res.G();
+			data[i * step + j * channels + 2] = res.R();
 		}
-		y += viewPort.delta.y;
 	}
 	cvSaveImage(filename , img);
 }

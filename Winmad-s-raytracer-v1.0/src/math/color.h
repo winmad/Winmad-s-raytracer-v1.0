@@ -39,6 +39,11 @@ public:
 		return 0.2126f * r + 0.7152f * g + 0.0722f * b;
 	}
 
+	Real maxComponent()
+	{
+		return std::max(r , std::max(g , b));
+	}
+
 	void clamp()
 	{
 		r = clampVal(r , 0.0 , 1.0);
@@ -69,6 +74,8 @@ const Color3 operator /(const Color3& , const Real&);
 
 // It is not dot product!
 const Color3 operator |(const Color3& , const Color3&);
+
+Real luminance(const Color3& c);
 
 void printColor3(FILE *fp , const Color3& color);
 

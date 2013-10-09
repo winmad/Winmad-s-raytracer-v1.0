@@ -14,7 +14,7 @@ public:
 	Geometry() {}
 	virtual ~Geometry();
 	virtual void setBox();
-	virtual Material& getMaterial();
+	virtual int getMatId();
 	virtual bool hit(const Ray& ray , Intersection& inter);
 };
 

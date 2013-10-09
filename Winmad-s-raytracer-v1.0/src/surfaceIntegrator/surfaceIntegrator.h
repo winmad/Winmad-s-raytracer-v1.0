@@ -3,16 +3,18 @@
 
 #include "../scene/scene.h"
 #include "../sampler/sampler.h"
+#include "../math/rng.h"
 
 class SurfaceIntegrator
 {
 public:
 	int width , height;
-	ViewPort viewPort;
 
 	int samplesPerPixel;
 
 	Scene scene;
+
+	RNG rng;
 
 	virtual void init(char *filename , Parameters& para);
 

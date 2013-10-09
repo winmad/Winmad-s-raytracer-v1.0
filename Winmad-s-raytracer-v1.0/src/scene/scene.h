@@ -12,49 +12,49 @@
 #include "KDtree.h"
 #include "../parameters.h"
 #include <vector>
-
-class ViewPort
-{
-public:
-	Vector3 l , r;
-	Vector3 delta;
-
-	ViewPort() {}
-
-	ViewPort(Real xmin , Real xmax , Real ymin , Real ymax , 
-		Real zmin , Real zmax) 
-		: l(xmin , ymin , zmin) , r(xmax , ymax , zmax) {}
-};
+#include <map>
 
 class Scene
 {
 public:
-	int pointLightNum;
-	
-	std::vector<PointLight> lightlist;
-    std::vector<Triangle> areaLightlist;
-	std::vector<Geometry*> objlist;
+	std::vector<Geometry*> objs;
 	KDtree kdtree;
-	Vector3 camera;
-	ViewPort viewPort;
+	Camera camera;
+	std::vector<Material> materials;
+	std::vector<AbstractLight*> lights;
+	SceneSphere sceneSphere;
+	BackgroundLight *background;
 
-	Scene() {}
+	Scene() : background(NULL) {}
+
+	~Scene()
+	{
+		delete background;
+		for (int i = 0; i < objs.size(); i++)
+			delete objs[i];
+		for (int i = 0; i < lights.size(); i++)
+			delete lights[i];
+	}
+
+	Geometry* intersect(const Ray& ray , Intersection& inter);
+
+	bool intersect(const Ray& ray);
+
+	Real shadowRayTest(const Ray& ray , const Vector3& p);
+
+	bool occluded(const Vector3& p1 , const Vector3& dir , const Vector3& p2);
 
 	void addGeometry(Geometry *g);
 
-	void addLight(PointLight l);
+	void addLight(AbstractLight *l);
+
+	void addMaterial(Material mat);
 
 	void loadScene();
 
 	void loadScene(char *filename);
 
 	void init(char* filename , Parameters& para);
-
-    Geometry* intersect(const Ray& ray , Intersection& inter);
-
-    bool intersect(const Ray& ray);
-
-	Real shadowRayTest(const Ray& ray , const Vector3& p);
 };
 
 #endif

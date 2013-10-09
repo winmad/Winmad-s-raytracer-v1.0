@@ -9,6 +9,7 @@ public:
 	Real t;
 	Vector3 p , n;
 	int inside;
+	int matId;
 
 	Intersection() {}
 
