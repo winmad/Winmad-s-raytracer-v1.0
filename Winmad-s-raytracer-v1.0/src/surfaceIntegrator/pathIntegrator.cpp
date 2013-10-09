@@ -8,119 +8,132 @@ void PathIntegrator::init(char *filename , Parameters& para)
 	samplesOfHemisphere = para.SAMPLES_OF_HEMISPHERE;
 
 	scene.init(filename , para);
-	viewPort = scene.viewPort;
 
 	height = para.HEIGHT; width = para.WIDTH;
-
-	viewPort.delta.x = (viewPort.r.x - viewPort.l.x) / (Real)width;
-	viewPort.delta.y = (viewPort.r.y - viewPort.l.y) / (Real)height;
-	viewPort.delta.z = 0.0;
 }
 
-static Color3 directIllumination(PathIntegrator& pathIntegrator , 
-						   Geometry* g , const Vector3& p , 
-						   const Vector3& n , const Vector3& wo)
+// MIS power = 1, balance heuristic
+static Real mis(Real pdf)
 {
-    Color3 res = Color3(0.0 , 0.0 , 0.0);
-    Vector3 wi;
-    Real cosine;
-    Color3 brdf;
-    Ray ray;
-	Intersection inter;
-    
-    for (int i = 0; i < pathIntegrator.samplesOfLight; i++)
-    {
-        int k = rand() % pathIntegrator.scene.lightlist.size();
-        wi = pathIntegrator.scene.lightlist[k].pos - p;
-        wi.normalize();
-
-        ray = Ray(pathIntegrator.scene.lightlist[k].pos - wi * (EPS * 10.0) ,
-			-wi);
-        if (cmp(pathIntegrator.scene.shadowRayTest(ray , p)) == 0)
-			continue;
-        
-        brdf = g->getMaterial().bxdf->calcBrdf(wi , wo , n);
-
-        //cosTerm = clamp_val(n ^ lightDir , 0.0 , 1.0);
-        cosine = 1.0;
-
-        res = res + (pathIntegrator.scene.lightlist[k].color | brdf) *
-            cosine;
-    }
-    res = res / pathIntegrator.samplesOfLight;
-    return res;
+	return pdf;
 }
 
-//static FILE *fp = fopen("debug.txt" , "w");
-
-static Color3 indirectIllumination(PathIntegrator& pathIntegrator, Geometry* g ,
-                             const Vector3& p , const Vector3& n ,
-                             const Vector3& wo , int dep)
+// MIS weight for 2 pdfs
+static Real mis(Real samplePdf , Real otherPdf)
 {
-    Color3 res = Color3(0.0 , 0.0 , 0.0);
-    Vector3 wi;
-    Ray ray;
-    Color3 tmp , brdf;
-
-    Real absorb = 1.0 - (g->getMaterial().bxdf->ks.r + 
-		g->getMaterial().bxdf->ks.g + g->getMaterial().bxdf->ks.b) / 3.0;
-
-    if (cmp(drand48() - absorb) <= 0)
-        return res;
-
-    Color3 reflectRes = Color3(0.0 , 0.0 , 0.0);
-    
-    for (int i = 0; i < pathIntegrator.samplesOfHemisphere; i++)
-    {
-        wi = sampleDirOnHemisphere(n);
-        ray = Ray(p + wi * (EPS * 10.0) , wi);
-        tmp = pathIntegrator.raytracing(ray , dep + 1);
-
-        brdf = g->getMaterial().bxdf->calcBrdf(wi , wo , n);
-
-        reflectRes = reflectRes + (tmp | brdf);
-    }
-    reflectRes = reflectRes / pathIntegrator.samplesOfHemisphere * PI;
-    
-    res = reflectRes;
-    
-    return res / (1.0 - absorb);
+	return mis(samplePdf) / (mis(samplePdf) + mis(otherPdf));
 }
 
 Color3 PathIntegrator::raytracing(const Ray& ray , int dep)
 {
-	if (dep > maxTracingDepth)
-		return Color3(0.0 , 0.0 , 0.0);
-
-	Geometry *g = NULL;
 	Intersection inter;
+	Color3 pathWeight(1.f);
+	Color3 res(0.f);
 
-	g = scene.intersect(ray , inter);
+	int pathLength = 1;
+	bool lastSpecular = 1;
+	Real lastPdf = 1.f;
+		
+	Real lightPickProb = 1.f / scene.lights.size();
 
-	if (g == NULL)
-		return Color3(0.0 , 0.0 , 0.0);
+	Ray r(ray);
 
-    // transmission
-    Color3 transRes = Color3(0.0 , 0.0 , 0.0);
-    
-    if (cmp(g->getMaterial().transparency) > 0 &&
-        cmp(g->getMaterial().refractionIndex) != 0)
-    {
-        Vector3 transDir = getTransDir(-ray.dir , inter.n , 
-			g->getMaterial().refractionIndex , inter.inside);
-        
-        if (transDir.isNormal())
-        {
-            Ray transRay = Ray(inter.p + transDir * (EPS * 10.0) , transDir);
-            transRes = raytracing(transRay , dep + 1);
-            transRes = transRes * g->getMaterial().transparency;
-        }
-    }
-    
-	Color3 emit , direct , indirect , res;
-    emit = Color3(0 , 0 , 0);
-    direct = directIllumination(*this , g , inter.p , inter.n , -ray.dir);
-    indirect = indirectIllumination(*this , g , inter.p , inter.n , -ray.dir , dep);
-    res = emit + direct + indirect + transRes;
-    return res;
+	for (;; pathLength++)
+	{
+		if (scene.intersect(r , inter) == NULL)
+			break;
+
+		Vector3 hitPoint = r(inter.t);
+		BSDF bsdf(-r.dir , inter , scene);
+		if (!bsdf.isValid())
+			break;
+
+		// hit light directly
+		if (bsdf.matId < 0)
+		{
+			AbstractLight *light = scene.lights[-bsdf.matId - 1];
+			Real directPdfArea;
+			Color3 contrib = light->getRadiance(scene.sceneSphere ,
+				r.dir , hitPoint , &directPdfArea);
+			if (contrib.isBlack())
+				break;
+
+			Real misWeight = 1.f;
+			if (pathLength > 1 && !lastSpecular)
+			{
+				Real directPdf = pdfAtoW(directPdfArea , 
+					inter.t , bsdf.cosWi());
+				misWeight = mis(lastPdf , directPdf / scene.lights.size());
+			}
+
+			res = res + (pathWeight | contrib) * misWeight;
+			break;
+		}
+
+		// direct illumination estimation
+		if (!bsdf.isDelta)
+		{
+			int lightId = (int)(rng.randFloat() * scene.lights.size());
+			AbstractLight *light = scene.lights[lightId];
+
+			Vector3 dirToLight;
+			Real dist , directPdf;
+
+			Color3 illu = light->illuminance(scene.sceneSphere , 
+				hitPoint , rng.randVector3() , dirToLight , dist ,
+				directPdf);
+
+			if (!illu.isBlack() && 
+				!scene.occluded(hitPoint , dirToLight , 
+				hitPoint + dirToLight * dist))
+			{
+				Real bsdfPdf , cosWo;
+				Color3 bsdfFactor = bsdf.f(scene , dirToLight , cosWo ,
+					&bsdfPdf);
+				if (!bsdfFactor.isBlack())
+				{
+					Real weight = 1.f;
+					if (!light->isDelta())
+					{
+						Real contProb = bsdf.continueProb;
+						bsdfPdf *= contProb;
+						weight = mis(directPdf / scene.lights.size() ,
+							bsdfPdf);
+					}
+
+					Color3 contrib = (illu | bsdfFactor) * 
+						(weight * cosWo / (lightPickProb * bsdfPdf));
+
+					res = res + (contrib | pathWeight);
+				}
+			}
+		}
+
+		// continue random walk
+		Real pdf , cosWo;
+		int sampledType;
+
+		Color3 bsdfFactor = bsdf.sample(scene , rng.randVector3() ,
+			r.dir , pdf , cosWo , &sampledType);
+
+		if (bsdfFactor.isBlack())
+			break;
+
+		// Russian Roulette
+		Real contProb = bsdf.continueProb;
+		lastSpecular = ((sampledType & BSDF_SPECULAR) != 0);
+		lastPdf = pdf * contProb;
+
+		if (cmp(contProb - 1.f) < 0)
+		{
+			if (cmp(rng.randFloat() - contProb) > 0)
+				break;
+			pdf *= contProb;
+		}
+
+		pathWeight = (pathWeight | bsdfFactor) * (cosWo / pdf);
+
+		r.origin = hitPoint + r.dir * EPS;
+	}
+	return res;
 }

@@ -4,6 +4,7 @@
 #include "../scene/scene.h"
 #include "../sampler/sampler.h"
 #include "../math/rng.h"
+#include "../material/bsdf.h"
 
 class SurfaceIntegrator
 {

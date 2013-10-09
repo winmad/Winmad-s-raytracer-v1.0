@@ -73,8 +73,11 @@ public:
 		if (cmp(wiLocal.z) == 0)
 			return;
 
-		const Material& mat = scene.materials[inter.matId];
-		calcComponentProb(mat , componentProb);
+		if (inter.matId > 0)
+		{
+			const Material& mat = scene.materials[inter.matId];
+			calcComponentProb(mat , componentProb);
+		}
 
 		isDelta = (cmp(componentProb.diffuseProb) == 0 &&
 			cmp(componentProb.glossyProb) == 0);
