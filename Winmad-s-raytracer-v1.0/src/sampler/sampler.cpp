@@ -103,6 +103,7 @@ Vector3 sampleCosHemisphere(const Vector3& samples , Real *pdf)
 	if (pdf)
 		*pdf = res.z * INV_PI;
 
+	res.normalize();
 	return res;
 }
 
@@ -121,8 +122,10 @@ Vector3 samplePowerCosHemisphere(const Vector3& samples ,
 	if (pdf)
 		*pdf = (power + 1.f) * std::pow(u2 , power) * (0.5f * INV_PI);
 
-	return Vector3(std::cos(u1) * u3 , std::sin(u1) * u3 ,
+	Vector3 res(std::cos(u1) * u3 , std::sin(u1) * u3 ,
 		u2);
+	res.normalize();
+	return res;
 }
 
 Real powerCosHemispherePdf(const Vector3& n , const Vector3& dir , 
@@ -144,7 +147,9 @@ Vector3 sampleUniformSphere(const Vector3& samples , Real *pdf)
 	if (pdf)
 		*pdf = INV_PI * 0.25f;
 
-    return Vector3(x , y , z);
+    Vector3 res(x , y , z);
+	res.normalize();
+	return res;
 }
 
 Real uniformSpherePdf()

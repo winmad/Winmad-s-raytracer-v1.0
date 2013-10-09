@@ -43,7 +43,7 @@ Color3 PathIntegrator::raytracing(const Ray& ray , int dep)
 		if (scene.intersect(r , inter) == NULL)
 			break;
 
-		Vector3 hitPoint = r(inter.t);
+		Vector3 hitPoint = inter.p;
 		BSDF bsdf(-r.dir , inter , scene);
 		if (!bsdf.isValid())
 			break;
@@ -63,12 +63,18 @@ Color3 PathIntegrator::raytracing(const Ray& ray , int dep)
 			{
 				Real directPdf = pdfAtoW(directPdfArea , 
 					inter.t , bsdf.cosWi());
-				misWeight = mis(lastPdf , directPdf / scene.lights.size());
+				misWeight = mis(lastPdf , directPdf * lightPickProb);
 			}
 
 			res = res + (pathWeight | contrib) * misWeight;
 			break;
 		}
+
+		if (pathLength > maxTracingDepth)
+			break;
+
+		if (cmp(bsdf.continueProb) == 0)
+			break;
 
 		// direct illumination estimation
 		if (!bsdf.isDelta)
@@ -84,8 +90,8 @@ Color3 PathIntegrator::raytracing(const Ray& ray , int dep)
 				directPdf);
 
 			if (!illu.isBlack() && 
-				!scene.occluded(hitPoint , dirToLight , 
-				hitPoint + dirToLight * dist))
+				!scene.occluded(hitPoint + dirToLight * EPS , dirToLight , 
+				hitPoint + dirToLight * (dist - EPS)))
 			{
 				Real bsdfPdf , cosWo;
 				Color3 bsdfFactor = bsdf.f(scene , dirToLight , cosWo ,
@@ -97,12 +103,12 @@ Color3 PathIntegrator::raytracing(const Ray& ray , int dep)
 					{
 						Real contProb = bsdf.continueProb;
 						bsdfPdf *= contProb;
-						weight = mis(directPdf / scene.lights.size() ,
+						weight = mis(directPdf * lightPickProb ,
 							bsdfPdf);
 					}
 
 					Color3 contrib = (illu | bsdfFactor) * 
-						(weight * cosWo / (lightPickProb * bsdfPdf));
+						(weight * cosWo / (lightPickProb * directPdf));
 
 					res = res + (contrib | pathWeight);
 				}
@@ -134,6 +140,7 @@ Color3 PathIntegrator::raytracing(const Ray& ray , int dep)
 		pathWeight = (pathWeight | bsdfFactor) * (cosWo / pdf);
 
 		r.origin = hitPoint + r.dir * EPS;
+		r.tmin = 0.f; r.tmax = INF;
 	}
 	return res;
 }

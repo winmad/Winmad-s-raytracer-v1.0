@@ -29,16 +29,16 @@ void BSDF::calcComponentProb(const Material& mat ,
 	Real probDiffuse = albedoDiffuse(mat);
 	Real probGlossy = albedoGlossy(mat);
 	Real probReflect = fresnelReflect * albedoReflect(mat);
-	Real probTrans = (1.0f - fresnelReflect) * albedoTrans(mat);
+	Real probTrans = (1.f - fresnelReflect) * albedoTrans(mat);
 	Real probTotal = probDiffuse + probGlossy + probReflect + probTrans;
 
-	if (cmp(probTotal) == 0)
+	if (cmp(probTotal) <= 0)
 	{
 		componentProb.diffuseProb =
 		componentProb.glossyProb =
 		componentProb.reflectProb =
 		componentProb.transProb = 
-		continueProb = 0.0f;
+		continueProb = 0.f;
 	}
 	else
 	{
@@ -49,8 +49,8 @@ void BSDF::calcComponentProb(const Material& mat ,
 
 		Color3 reflect = mat.diffuse + mat.phong +
 			mat.specular * fresnelReflect;
-		continueProb = reflect.maxComponent() + (1.0f - fresnelReflect);
-		continueProb = clampVal(continueProb , 0.0f , 1.0f);
+		continueProb = reflect.maxComponent() + (1.f - fresnelReflect);
+		continueProb = clampVal(continueProb , 0.f , 1.f);
 	}
 }
 
@@ -60,7 +60,7 @@ Color3 BSDF::calcDiffuse(const Material& mat ,
 {
 	if (cmp(componentProb.diffuseProb) == 0)
 		return Color3(0);
-	if (cmp(wiLocal.z) == 0 || cmp(woLocal.z) == 0)
+	if (cmp(wiLocal.z) <= 0 || cmp(woLocal.z) <= 0)
 		return Color3(0);
 	if (directPdf)
 		*directPdf += componentProb.diffuseProb *
@@ -77,7 +77,7 @@ Color3 BSDF::calcGlossy(const Material& mat ,
 {
 	if (cmp(componentProb.glossyProb) == 0)
 		return Color3(0);
-	if (cmp(wiLocal.z) == 0 || cmp(woLocal.z) == 0)
+	if (cmp(wiLocal.z) <= 0 || cmp(woLocal.z) <= 0)
 		return Color3(0);
 
 	Vector3 reflectLocal = Vector3(-wiLocal.x , -wiLocal.y , wiLocal.z);
@@ -103,7 +103,7 @@ Color3 BSDF::f(const Scene& scene , const Vector3& woWorld ,
 	Real& cosWo , Real *directPdf /* = NULL  */, 
 	Real *reversePdf /* = NULL */)
 {
-	Color3 res;
+	Color3 res(0.f);
 	if (directPdf)
 		*directPdf = 0.f;
 	if (reversePdf)
@@ -180,7 +180,7 @@ Real BSDF::pdf(const Scene& scene ,
 Color3 BSDF::sampleDiffuse(const Material& mat , 
 	const Vector3& rand3 , Vector3& woLocal , Real& pdf)
 {
-	if (cmp(wiLocal.z) == 0)
+	if (cmp(wiLocal.z) <= 0)
 		return Color3(0);
 
 	Real pdfW;
@@ -202,7 +202,7 @@ Color3 BSDF::sampleGlossy(const Material& mat ,
 	woLocal = frame.localToWorld(woLocal);
 
 	Real cos = reflectLocal ^ woLocal;
-	if (cmp(cos) == 0)
+	if (cmp(cos) <= 0)
 		return Color3(0);
 
 	pdfGlossy(mat , woLocal , &pdf);
@@ -248,6 +248,7 @@ Color3 BSDF::sampleTrans(const Material& mat ,
 		cosT *= std::sqrt(clampVal(1.f - sinT2 , 0.f , 1.f));
 		woLocal = Vector3(-etaI_over_etaT * wiLocal.x ,
 			-etaI_over_etaT * wiLocal.y , cosT);
+		woLocal.normalize();
 		pdf += componentProb.transProb;
 
 		Real transCoeff = 1.f - fresnelReflect;

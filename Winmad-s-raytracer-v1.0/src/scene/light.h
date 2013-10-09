@@ -57,6 +57,8 @@ public:
 		const Vector3& rayDir , const Vector3& hitPos ,
 		Real *directPdfArea = NULL , Real *emissionPdf = NULL) = 0;
 
+	virtual Color3 getIntensity() = 0;
+
 	virtual bool isFinite() = 0;
 
 	virtual bool isDelta() = 0;
@@ -81,6 +83,7 @@ public:
 		Vector3 n = d1 * d2;
 		Real len = n.length();
 		invArea = 2.f / len;
+		n.normalize();
 		localFrame.buildFromZ(n);
 	}
 
@@ -97,6 +100,8 @@ public:
 	virtual Color3 getRadiance(const SceneSphere& sceneSphere ,
 		const Vector3& rayDir , const Vector3& hitPos ,
 		Real *directPdfArea = NULL , Real *emissionPdf = NULL);
+
+	virtual Color3 getIntensity() {return intensity;}
 
 	virtual bool isFinite();
 
@@ -129,6 +134,8 @@ public:
 		const Vector3& rayDir , const Vector3& hitPos ,
 		Real *directPdfArea = NULL , Real *emissionPdf = NULL);
 
+	virtual Color3 getIntensity() {return intensity;}
+
 	virtual bool isFinite();
 
 	virtual bool isDelta();
@@ -156,6 +163,8 @@ public:
 	virtual Color3 getRadiance(const SceneSphere& sceneSphere ,
 		const Vector3& rayDir , const Vector3& hitPos ,
 		Real *directPdfArea = NULL , Real *emissionPdf = NULL);
+
+	virtual Color3 getIntensity() {return intensity;}
 
 	virtual bool isFinite();
 
@@ -187,6 +196,8 @@ public:
 	virtual Color3 getRadiance(const SceneSphere& sceneSphere ,
 		const Vector3& rayDir , const Vector3& hitPos ,
 		Real *directPdfArea = NULL , Real *emissionPdf = NULL);
+
+	virtual Color3 getIntensity() {return backgroundColor * scale;}
 
 	virtual bool isFinite();
 

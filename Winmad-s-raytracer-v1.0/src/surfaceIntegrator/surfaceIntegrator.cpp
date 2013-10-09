@@ -10,6 +10,8 @@ Color3 SurfaceIntegrator::raytracing(const Ray& ray , int dep)
 	return Color3(0.0 , 0.0 , 0.0);
 }
 
+static FILE *fp = fopen("debug_path.txt" , "w");
+
 void SurfaceIntegrator::render(char *filename)
 {
 	IplImage *img = 0;
@@ -24,6 +26,7 @@ void SurfaceIntegrator::render(char *filename)
 
             for (int k = 0; k < samplesPerPixel; k++)
             {
+				
                 Vector3 v0 = Vector3(j - 0.5 , i - 0.5 , 0);
                 Vector3 v1 = Vector3(j + 0.5 , i - 0.5 , 0);
 				Vector3 v2 = Vector3(j - 0.5 , i + 0.5 , 0);
@@ -31,16 +34,18 @@ void SurfaceIntegrator::render(char *filename)
                 Vector3 posRaster = sampleRectangleStratified(
                     rng.randVector3() ,
 					v0 , v1 , v2 , k , samplesPerPixel);
-                
+
                 Ray ray = scene.camera.generateRay(posRaster.x , posRaster.y);
 
                 Color3 tmp = raytracing(ray , 0);
                 tmp.clamp();
                 res = res + tmp;
             }
-            res = res * (1.0 / (Real)samplesPerPixel);
-            /*
-            fprintf(fp , "c=(%.3lf,%.3lf,%.3lf)\n" ,
+            res = res * (1.f / (Real)samplesPerPixel);
+
+            res.gamma(2.2f);
+			/*
+            fprintf(fp , "c(%d,%d)=(%.3lf,%.3lf,%.3lf)\n" , i , j ,
                     res.r , res.g , res.b);
             */
 			int h = img->height;

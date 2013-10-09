@@ -31,8 +31,6 @@ enum BSDFType
 class BSDF
 {
 public:
-	BSDFType type;
-
 	int matId;
 
 	Frame localFrame;
@@ -69,6 +67,7 @@ public:
 		matId = 0;
 		localFrame.buildFromZ(inter.n);
 		wiLocal = localFrame.worldToLocal(wi);
+		wiLocal.normalize();
 
 		if (cmp(wiLocal.z) == 0)
 			return;
