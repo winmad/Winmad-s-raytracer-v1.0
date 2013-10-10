@@ -115,6 +115,9 @@ Color3 BSDF::f(const Scene& scene , const Vector3& woWorld ,
 
 	cosWo = std::abs(woLocal.z);
 
+	if (matId < 0)
+		return res;
+
 	const Material& mat = scene.materials[matId];
 
 	res = res + calcDiffuse(mat , woLocal , directPdf , reversePdf);

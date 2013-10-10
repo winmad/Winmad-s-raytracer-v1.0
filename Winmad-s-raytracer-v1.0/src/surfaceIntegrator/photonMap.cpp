@@ -6,13 +6,13 @@
 
 void PhotonIntegrator::init(char *filename , Parameters& para)
 {
-    nCausticPhotons = 20000;
+    nCausticPhotons = 10000;
     
     nIndirectPhotons = 100000;
 
     knnPhotons = 50;
 
-    maxSqrDis = 1000;
+    maxSqrDis = 0.1;
     
     maxPathLength = 5;
 
@@ -43,30 +43,40 @@ void PhotonIntegrator::buildPhotonMap(Scene& scene)
     bool specularPath;
     int nIntersections;
     Intersection inter;
-    
+    Real lightPickProb = 1.f / scene.lights.size();
+
     while (!causticDone || !indirectDone)
     {
         nShot++;
 
         /* generate initial photon ray */
         int k = (int)(rng.randFloat() * scene.lights.size());
-        Color3 alpha = scene.lights[k]->getIntensity();
-        
-        Vector3 dir = uniformSampleDirOnSphere();
-        Ray photonRay = Ray(scene.lightlist[k].pos , dir);
 
-        alpha = alpha * (4.0 * PI) * (scene.lightlist.size());
+		Vector3 lightPos , lightDir;
+		Real emissionPdf , directPdfArea , cosAtLight;
+		Color3 alpha;
+
+		AbstractLight *l = scene.lights[k];
+		alpha = l->emit(scene.sceneSphere , rng.randVector3() , rng.randVector3() ,
+			lightPos , lightDir , emissionPdf , &directPdfArea ,
+			&cosAtLight);
+
+		alpha = alpha * cosAtLight / (emissionPdf * lightPickProb);
+        
+		Ray photonRay(lightPos , lightDir);
 
         if (!alpha.isBlack())
         {
             specularPath = 1;
             nIntersections = 0;
             Geometry *g = scene.intersect(photonRay , inter);
-            while (g != NULL)
+            while (g != NULL && inter.matId > 0)
             {
+				BSDF bsdf(-photonRay.dir , inter , scene);
+
                 nIntersections++;
-                bool hasNonSpecular = (cmp(g->getMaterial().shininess) == 0 &&
-                                      cmp(g->getMaterial().transparency) == 0);
+                bool hasNonSpecular = (cmp(bsdf.componentProb.diffuseProb) > 0 ||
+                                      cmp(bsdf.componentProb.glossyProb) > 0);
                 if (hasNonSpecular)
                 {
                     Photon photon(inter.p , -photonRay.dir , alpha);
@@ -77,9 +87,6 @@ void PhotonIntegrator::buildPhotonMap(Scene& scene)
                             causticPhotons.push_back(photon);
                             if (causticPhotons.size() == nCausticPhotons)
                             {
-                                visualize(causticPhotons , viewPort ,
-                                          scene , "caustic_photon_map.bmp");
-                                
                                 causticDone = 1;
                                 nCausticPaths = nShot;
                                 causticMap = new PhotonKDtree();
@@ -95,9 +102,6 @@ void PhotonIntegrator::buildPhotonMap(Scene& scene)
                             indirectPhotons.push_back(photon);
                             if (indirectPhotons.size() == nIndirectPhotons)
                             {
-                                visualize(indirectPhotons , viewPort ,
-                                          scene , "indirect_photon_map.bmp");
-                                
                                 indirectDone = 1;
                                 nIndirectPaths = nShot;
                                 
@@ -113,48 +117,33 @@ void PhotonIntegrator::buildPhotonMap(Scene& scene)
 
                 /* find new photon ray direction */
                 /* handle specular reflection and transmission first */
-                Vector3 dir;
-                if (cmp(g->getMaterial().shininess) > 0)
-                {
-                    dir = getReflectDir(-photonRay.dir , inter.n);
-                    Color3 brdf = g->getMaterial().bxdf->calcBrdf(-photonRay.dir , 
-						dir , inter.n);
-                    Real cosine = fabs(inter.n ^ photonRay.dir);
-                    alpha = (alpha | brdf) * cosine;
-                }
-                else if (cmp(g->getMaterial().transparency) > 0)
-                {
-                    dir = getTransDir(-photonRay.dir , inter.n , 
-						g->getMaterial().refractionIndex , inter.inside);
-                    if (!dir.isNormal())
-                        break;
-                    Color3 btdf = g->getMaterial().bxdf->calcBtdf(-photonRay.dir , 
-						dir , -inter.n);
-                    Real cosine = fabs(inter.n ^ photonRay.dir);
-                    alpha = (alpha | btdf) * cosine;
-                }
-                else
-                {
-                    /* handle non-specular reflection by cosine sampling on
-                       hemisphere */
-                    dir = sampleDirOnHemisphere(inter.n);
-                    Color3 brdf = g->getMaterial().bxdf->calcBrdf(-photonRay.dir , 
-						dir , inter.n);
-                    alpha = (alpha | brdf) * PI;
-                    specularPath = 0;
-                }
+				Real pdf , cosWo;
+				int sampledType;
 
-				if (alpha.isBlack())
+				Color3 bsdfFactor = bsdf.sample(scene , rng.randVector3() ,
+					photonRay.dir , pdf , cosWo , &sampledType);
+
+				if (bsdfFactor.isBlack())
 					break;
-				photonRay = Ray(inter.p + dir * (10.0 * EPS) , dir);
 
-                /* Possibly terminate by Russian Roulette */
-                if (nIntersections > 3)
-                {
-                    if (cmp(drand48() - 0.5) <= 0)
-                        break;
-                    alpha = alpha / 0.5;
-                }
+				if (sampledType & BSDF_NON_SPECULAR)
+					specularPath = 0;
+
+				// Russian Roulette
+				Real contProb = bsdf.continueProb;
+				
+				if (cmp(contProb - 1.f) < 0)
+				{
+					if (cmp(rng.randFloat() - contProb) > 0)
+						break;
+					pdf *= contProb;
+				}
+
+				alpha = (alpha | bsdfFactor) * (cosWo / pdf);
+
+				photonRay.origin = inter.p + photonRay.dir * EPS;
+				photonRay.tmin = 0.f; photonRay.tmax = INF;
+
                 g = scene.intersect(photonRay , inter);
             }
         }
@@ -162,9 +151,8 @@ void PhotonIntegrator::buildPhotonMap(Scene& scene)
 }
 
 static Color3 estimate(PhotonKDtree *map , int nPaths , int knn ,
-                                  Geometry* g , const Vector3& p ,
-                                  const Vector3& n , const Vector3& wo ,
-                                  Real maxSqrDis)
+                                  Scene& scene , Intersection& inter , 
+								  const Vector3& wo , Real maxSqrDis)
 {
     Color3 res = Color3(0.0 , 0.0 , 0.0);
     
@@ -173,7 +161,7 @@ static Color3 estimate(PhotonKDtree *map , int nPaths , int knn ,
     
     std::vector<ClosePhoton> kPhotons;
     Photon photon;
-    photon.p = p;
+    photon.p = inter.p;
 
     Real searchSqrDis = maxSqrDis;
     Real msd; /* max square distance */
@@ -191,13 +179,15 @@ static Color3 estimate(PhotonKDtree *map , int nPaths , int knn ,
         return res;
     
     Vector3 nv;
-    if (cmp(wo ^ n) < 0)
-        nv = -n;
+    if (cmp(wo ^ inter.n) < 0)
+        nv = -inter.n;
     else
-        nv = n;
+        nv = inter.n;
 
     Real scale = 1.0 / (PI * msd * nFoundPhotons);
     
+	BSDF bsdf(wo , inter , scene);
+	Real cosTerm , pdf;
     for (int i = 0; i < nFoundPhotons; i++)
     {
         /*
@@ -207,73 +197,93 @@ static Color3 estimate(PhotonKDtree *map , int nPaths , int knn ,
         */
         if (cmp(nv ^ kPhotons[i].photon->wi) > 0)
         {
-            Color3 brdf = g->getMaterial().bxdf->calcBrdf(
-				kPhotons[i].photon->wi , wo , nv);
-            res = res + (brdf | kPhotons[i].photon->alpha) * scale;
+            Color3 brdf = bsdf.f(scene , kPhotons[i].photon->wi , 
+				cosTerm , &pdf);
+			if (brdf.isBlack())
+				continue;
+            res = res + (brdf | kPhotons[i].photon->alpha) * 
+				(cosTerm * scale / pdf);
         }
         else
         {
-            Color3 btdf = g->getMaterial().bxdf->calcBtdf(
-				kPhotons[i].photon->wi , wo , nv);
-            res = res + (btdf | kPhotons[i].photon->alpha) * scale;
+			Vector3 wi(kPhotons[i].photon->wi);
+			wi.z *= -1.f;
+			Color3 brdf = bsdf.f(scene , wi , cosTerm , &pdf);
+			if (brdf.isBlack())
+				continue;
+			res = res + (brdf | kPhotons[i].photon->alpha) * 
+				(cosTerm * scale / pdf);
         }
     }
     return res;
 }
 
-static Color3 directIllumination(Scene& scene , Geometry* g ,
-                           const Vector3& p , const Vector3& n ,
-                           const Vector3& visionDir)
+static Color3 directIllumination(Scene& scene , Intersection& inter ,
+                           RNG& rng , const Vector3& visionDir)
 {
     Color3 res = Color3(0.0 , 0.0 , 0.0);
     Vector3 lightDir;
     Real cosine;
     Color3 brdf;
     Ray ray;
-    Intersection inter;
     
-    for (int i = 0; i < 8; i++)
-    {
-        int k = rand() % scene.lightlist.size();
-        lightDir = scene.lightlist[k].pos - p;
-        lightDir.normalize();
+	BSDF bsdf(visionDir , inter , scene);
 
-        ray = Ray(scene.lightlist[k].pos - lightDir * (EPS * 10.0) , -lightDir);
-        if (cmp(scene.shadowRayTest(ray , p)) == 0)
+	int N = 1;
+    for (int i = 0; i < N; i++)
+    {
+        int k = rand() % scene.lights.size();
+		AbstractLight *l = scene.lights[k];
+		
+		Vector3 dirToLight;
+		Real dist , directPdf;
+
+		Color3 illu = l->illuminance(scene.sceneSphere , inter.p , rng.randVector3() ,
+			dirToLight , dist , directPdf);
+
+		illu = illu / (directPdf / scene.lights.size());
+
+        if (scene.occluded(inter.p + dirToLight * EPS , dirToLight ,
+			inter.p + dirToLight * (inter.t - EPS)))
             continue;
         
-        brdf = g->getMaterial().bxdf->calcBrdf(lightDir , visionDir , n);
-
-        cosine = clampVal(n ^ lightDir , 0.0 , 1.0);
-
-        res = res + (scene.lightlist[k].color | brdf) *
-            cosine;
+		Real bsdfPdf;
+        brdf = bsdf.f(scene , dirToLight , cosine , &bsdfPdf);
+		if (brdf.isBlack())
+			continue;
+        res = res + (illu | brdf) * (cosine / bsdfPdf);
     }
-    res = res / 8;
+    res = res / N;
     return res;
 }
 
-static Color3 finalGathering(PhotonKDtree *map , Scene& scene , Geometry *g ,
-                             const Vector3& p , const Vector3& n , const Vector3& wo ,
+static Color3 finalGathering(PhotonKDtree *map , Scene& scene , 
+							 Intersection& inter , RNG& rng , const Vector3& wo ,
                              int gatherSamples , int knn , Real maxSqrDis)
 {
     Color3 res = Color3(0.0 , 0.0 , 0.0);
     for (int i = 0; i < gatherSamples; i++)
     {
-        Vector3 wi = sampleDirOnHemisphere(n);
-        Ray ray = Ray(p + wi * (10.0 * EPS) , wi);
+		Real pdf;
+        Vector3 wi = sampleCosHemisphere(rng.randVector3() , &pdf);
+        Ray ray = Ray(inter.p + wi * EPS , wi);
 
-        Intersection inter;
+        Intersection _inter;
         
-        Geometry *_g = scene.intersect(ray , inter);
+        Geometry *_g = scene.intersect(ray , _inter);
 
         if (_g == NULL)
             continue;
         
-        Color3 tmp = estimate(map , 0 , knn , _g , inter.p , inter.n , -wi , maxSqrDis);
+        Color3 tmp = estimate(map , 0 , knn , scene , _inter , -wi , maxSqrDis);
 
-        Color3 brdf = g->getMaterial().bxdf->calcBrdf(wi , wo , n);
-        res = res + (tmp | brdf) * PI;
+		BSDF bsdf(wi , _inter , scene);
+		Real cosine , bsdfPdf;
+        Color3 brdf = bsdf.f(scene , wo , cosine , &bsdfPdf);
+		if (brdf.isBlack())
+			continue;
+		pdf *= bsdfPdf;
+        res = res + (tmp | brdf) * (cosine / pdf);
     }
     res = res / gatherSamples;
     return res;
@@ -283,7 +293,7 @@ Color3 PhotonIntegrator::raytracing(const Ray& ray , int dep)
 {
     Color3 res = Color3(0.0 , 0.0 , 0.0);
 
-    if (dep > maxTracingDepth)
+    if (dep > 2)
         return res;
 
     Geometry *g = NULL;
@@ -294,40 +304,57 @@ Color3 PhotonIntegrator::raytracing(const Ray& ray , int dep)
 
     if (g == NULL)
         return res;
+
+	if (inter.matId < 0)
+	{
+		AbstractLight *l = scene.lights[-inter.matId - 1];
+		return l->getIntensity() * 100.f;
+	}
     
-    res = res + directIllumination(scene , g , inter.p , inter.n , -ray.dir);
+    res = res + directIllumination(scene , inter , rng , -ray.dir);
       
-    //res = res + estimate(indirectMap , nIndirectPaths , knnPhotons , g , p , n , -ray.dir , maxSqrDis);
+    res = res + estimate(indirectMap , nIndirectPaths , knnPhotons , scene , inter , -ray.dir , maxSqrDis);
 
     //Color3 t1 = estimate(indirectMap , nIndirectPaths , knnPhotons , g , p , n , -ray.dir , maxSqrDis);
     //Color3 t2 = finalGathering(indirectMap , scene , g , p , n , -ray.dir , 50 , knnPhotons , maxSqrDis);
     
-    res = res + finalGathering(indirectMap , scene , g , inter.p , inter.n , -ray.dir , 50 , knnPhotons , maxSqrDis);
+    //res = res + finalGathering(indirectMap , scene , inter , rng , -ray.dir , 50 , knnPhotons , maxSqrDis);
     
-    res = res + estimate(causticMap , nCausticPaths , knnPhotons , g , inter.p , inter.n , -ray.dir , maxSqrDis);
+    res = res + estimate(causticMap , nCausticPaths , knnPhotons , scene , inter , -ray.dir , maxSqrDis);
 
-    if (cmp(g->getMaterial().shininess) > 0)
-    {
-        Vector3 dir = getReflectDir(-ray.dir , inter.n);
-        reflectRay = Ray(inter.p + dir * (10.0 * EPS) , dir);
-        res = res + raytracing(reflectRay , dep + 1);
-    }
+	BSDF bsdf(-ray.dir , inter , scene);
 
-    if (cmp(g->getMaterial().transparency) > 0)
-    {
-        Vector3 dir = getTransDir(-ray.dir , inter.n , g->getMaterial().refractionIndex , inter.inside);
-        if (dir.isNormal())
-        {
-            transRay = Ray(inter.p + dir * (10.0 * EPS) , dir);
-            res = res + raytracing(transRay , dep + 1);
-        }
-    }
+	Real pdf , cosWo;
+	int sampledType;
+	Ray newRay;
+
+	Color3 bsdfFactor = bsdf.sample(scene , rng.randVector3() ,
+		newRay.dir , pdf , cosWo , &sampledType);
+
+	if (bsdfFactor.isBlack())
+		return res;
+
+	// Russian Roulette
+	Real contProb = bsdf.continueProb;
+
+	if (cmp(contProb - 1.f) < 0)
+	{
+		if (cmp(rng.randFloat() - contProb) > 0)
+			return res;
+		pdf *= contProb;
+	}
     
+	newRay.origin = inter.p + newRay.dir * EPS;
+	newRay.tmin = 0; newRay.tmax = INF;
+
+	Color3 contrib = raytracing(newRay , dep + 1);
+
+	res = res + (contrib | bsdfFactor) * (cosWo / pdf);
+
     return res;
 }
 
 void PhotonIntegrator::visualize(const std::vector<Photon>& photons ,
-                                 const ViewPort& viewPort ,
                                  Scene& scene , char *filename)
 {
     IplImage *img = 0;
@@ -356,8 +383,8 @@ void PhotonIntegrator::visualize(const std::vector<Photon>& photons ,
         Photon photon = photons[i];
         Vector3 p = photon.p;
         Real x , y , z0 , t;
-        z0 = viewPort.l.z;
-        Vector3 dir = p - scene.camera;
+        z0 = 0;
+        Vector3 dir = p - scene.camera.pos;
         if (cmp(dir.z) != 0)
         {
             t = (z0 - p.z) / dir.z;
@@ -375,9 +402,11 @@ void PhotonIntegrator::visualize(const std::vector<Photon>& photons ,
         if (scene.intersect(shadowRay) != NULL)
             continue;
         
+		Vector3 posWorld(x , y , z0);
+		Vector3 posRaster = scene.camera.worldToRaster.tPoint(posWorld);
         int r , c;
-        r = (int)(((y - viewPort.l.y) / (viewPort.r.y - viewPort.l.y) * (double)height));
-        c = (int)(((x - viewPort.l.x) / (viewPort.r.x - viewPort.l.x) * (double)width));
+        r = posRaster.y;
+		c = posRaster.x;
         r = std::max(0 , std::min(r , height - 1));
         c = std::max(0 , std::min(c , width - 1));
         cnt[r][c]++;
@@ -388,7 +417,9 @@ void PhotonIntegrator::visualize(const std::vector<Photon>& photons ,
     {
         for (int j = 0; j < width; j++)
         {
+			//scale
             col[i][j] = col[i][j] / ((double)cnt[i][j] * 4 * PI * 100);
+
             int h = img->height;
 			int w = img->width;
 			int step = img->widthStep;

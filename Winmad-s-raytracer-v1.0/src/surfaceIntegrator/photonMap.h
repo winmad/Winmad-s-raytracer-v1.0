@@ -28,16 +28,10 @@ public:
     void init(char *filename , Parameters& para);
     
     void buildPhotonMap(Scene& scene);
-	/*
-    Color3 estimate(PhotonKDtree *map , int nPaths , int knn ,
-                    Geometry* g , const Vector3& p , 
-                    const Vector3& n , const Vector3& wo , 
-                    Real maxSqrDis);
-	*/
+
     Color3 raytracing(const Ray& ray , int dep);
     
-    void visualize(const std::vector<Photon>& photons ,
-    			   const ViewPort& viewPort , 
+    void visualize(const std::vector<Photon>& photons , 
     			   Scene& scene , char *filename);
 };
 

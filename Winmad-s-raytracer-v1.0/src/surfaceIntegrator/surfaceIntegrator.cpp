@@ -10,7 +10,7 @@ Color3 SurfaceIntegrator::raytracing(const Ray& ray , int dep)
 	return Color3(0.0 , 0.0 , 0.0);
 }
 
-static FILE *fp = fopen("debug_path.txt" , "w");
+static FILE *fp = fopen("debug_pm.txt" , "w");
 
 void SurfaceIntegrator::render(char *filename)
 {
@@ -38,16 +38,22 @@ void SurfaceIntegrator::render(char *filename)
                 Ray ray = scene.camera.generateRay(posRaster.x , posRaster.y);
 
                 Color3 tmp = raytracing(ray , 0);
+
+				fprintf(fp , "c(%d,%d)=(%.3lf,%.3lf,%.3lf)\n" , i , j ,
+					tmp.r , tmp.g , tmp.b);
+
+				tmp = tmp / 1000.f;
+
                 tmp.clamp();
                 res = res + tmp;
             }
             res = res * (1.f / (Real)samplesPerPixel);
 
             res.gamma(2.2f);
-			/*
-            fprintf(fp , "c(%d,%d)=(%.3lf,%.3lf,%.3lf)\n" , i , j ,
-                    res.r , res.g , res.b);
-            */
+			
+//             fprintf(fp , "c(%d,%d)=(%.3lf,%.3lf,%.3lf)\n" , i , j ,
+//                     res.r , res.g , res.b);
+            
 			int h = img->height;
 			int w = img->width;
 			int step = img->widthStep;

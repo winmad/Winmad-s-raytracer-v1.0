@@ -31,7 +31,7 @@ public:
 
     bool operator <(const ClosePhoton &p) const
     {
-        return (cmp(sqrDis - p.sqrDis) < 0);
+        return (sqrDis < p.sqrDis);
     }
 };
 

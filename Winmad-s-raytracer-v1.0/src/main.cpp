@@ -3,16 +3,14 @@
 #include "parameters.h"
 #include "surfaceIntegrator/whitted.h"
 #include "surfaceIntegrator/pathIntegrator.h"
+#include "surfaceIntegrator/photonMap.h"
 #include <opencv2/opencv.hpp>
 #include "tinyxml/tinyxml.h"
 
 Parameters para;
 WhittedIntegrator whitted;
 PathIntegrator pathIntegrator;
-/*
 PhotonIntegrator photonIntegrator;
-IGIIntegrator igiIntegrator;
-*/
 
 int main(int argc , char* argv[])
 {
@@ -27,14 +25,13 @@ int main(int argc , char* argv[])
 		pathIntegrator.init(argv[1] , para);
 		pathIntegrator.render(argv[2]);
 	}
-	/*
 	else if (!strcmp(argv[3] , "-pm"))
 	{
 		photonIntegrator.init(argv[1] , para);
 		photonIntegrator.buildPhotonMap(photonIntegrator.scene);
-		//if (argc == 4)
-			photonIntegrator.render(argv[2]);
+		photonIntegrator.render(argv[2]);
 	}
+	/*
 	else if (!strcmp(argv[3] , "-igi"))
 	{
 		igiIntegrator.init(argv[1] , para);
