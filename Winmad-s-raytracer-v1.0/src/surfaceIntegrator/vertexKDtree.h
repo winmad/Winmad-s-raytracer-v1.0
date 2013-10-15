@@ -10,7 +10,7 @@ struct PathVertex
 {
 	Vector3 hitPos;
 	Color3 throughput;
-	int length;
+	int pathLength;
 
 	BSDF bsdf;
 
@@ -53,10 +53,10 @@ public:
 
 	void init(const std::vector<PathVertex>& vertices);
 
-	void buildTree(PhotonKDtreeNode *tr , int dep);
+	void buildTree(VertexKDtreeNode *tr , int dep);
 
 	void searchVertexInRadius(std::vector<PathVertex>& vertices ,
-		PhotonKDtreeNode *tr , const Vector3& pos ,
+		VertexKDtreeNode *tr , const Vector3& pos ,
 		Real radius);
 };
 
