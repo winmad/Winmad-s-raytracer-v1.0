@@ -9,6 +9,8 @@ void WhittedIntegrator::init(char *filename , Parameters& para)
 	scene.init(filename , para);
 
 	height = para.HEIGHT; width = para.WIDTH;
+
+	film = new ImageFilm(height , width);
 }
 
 //static FILE *fp = fopen("debug_whitted.txt" , "w");

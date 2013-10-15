@@ -2,7 +2,7 @@
 #include "../sampler/sampler.h"
 #include <opencv2/opencv.hpp>
 
-//static FILE *fp = fopen("debug_pm.txt" , "w");
+static FILE *fp = fopen("debug_pm.txt" , "w");
 
 void PhotonIntegrator::init(char *filename , Parameters& para)
 {
@@ -27,6 +27,13 @@ void PhotonIntegrator::init(char *filename , Parameters& para)
     scene.init(filename , para);
 
 	height = para.HEIGHT; width = para.WIDTH;
+
+	film = new ImageFilm(height , width);
+}
+
+void PhotonIntegrator::outputImage(char *filename)
+{
+	film->outputImage(filename , 1.f / 1000.f , 2.2);
 }
 
 void PhotonIntegrator::buildPhotonMap(Scene& scene)
@@ -315,9 +322,8 @@ Color3 PhotonIntegrator::raytracing(const Ray& ray , int dep)
       
     res = res + estimate(indirectMap , nIndirectPaths , knnPhotons , scene , inter , -ray.dir , maxSqrDis);
 
-    //Color3 t1 = estimate(indirectMap , nIndirectPaths , knnPhotons , g , p , n , -ray.dir , maxSqrDis);
-    //Color3 t2 = finalGathering(indirectMap , scene , g , p , n , -ray.dir , 50 , knnPhotons , maxSqrDis);
-    
+	// final gathering is too slow!
+
     //res = res + finalGathering(indirectMap , scene , inter , rng , -ray.dir , 50 , knnPhotons , maxSqrDis);
     
     res = res + estimate(causticMap , nCausticPaths , knnPhotons , scene , inter , -ray.dir , maxSqrDis);

@@ -1,5 +1,4 @@
 #include "surfaceIntegrator.h"
-#include <opencv2/opencv.hpp>
 
 void SurfaceIntegrator::init(char *filename , Parameters& para)
 {
@@ -10,13 +9,10 @@ Color3 SurfaceIntegrator::raytracing(const Ray& ray , int dep)
 	return Color3(0.0 , 0.0 , 0.0);
 }
 
-static FILE *fp = fopen("debug_pm.txt" , "w");
+//static FILE *fp = fopen("debug_integrator.txt" , "w");
 
-void SurfaceIntegrator::render(char *filename)
+void SurfaceIntegrator::render()
 {
-	IplImage *img = 0;
-	img = cvCreateImage(cvSize(width , height) , 
-		IPL_DEPTH_8U , 3);
 	Color3 res;
 	for (int i = 0; i < height; i++)
 	{
@@ -39,31 +35,17 @@ void SurfaceIntegrator::render(char *filename)
 
                 Color3 tmp = raytracing(ray , 0);
 
-				fprintf(fp , "c(%d,%d)=(%.3lf,%.3lf,%.3lf)\n" , i , j ,
-					tmp.r , tmp.g , tmp.b);
+// 				fprintf(fp , "c(%d,%d)=(%.3lf,%.3lf,%.3lf)\n" , i , j ,
+// 					tmp.r , tmp.g , tmp.b);
 
-				tmp = tmp / 1000.f;
-
-                tmp.clamp();
-                res = res + tmp;
+				film->addColor(i , j , tmp);
             }
-            res = res * (1.f / (Real)samplesPerPixel);
-
-            res.gamma(2.2f);
-			
-//             fprintf(fp , "c(%d,%d)=(%.3lf,%.3lf,%.3lf)\n" , i , j ,
-//                     res.r , res.g , res.b);
-            
-			int h = img->height;
-			int w = img->width;
-			int step = img->widthStep;
-			int channels = img->nChannels;
-
-			uchar *data = (uchar*)img->imageData;
-			data[i * step + j * channels + 0] = res.B();
-			data[i * step + j * channels + 1] = res.G();
-			data[i * step + j * channels + 2] = res.R();
 		}
 	}
-	cvSaveImage(filename , img);
+	film->scale(1.f / samplesPerPixel);
+}
+
+void SurfaceIntegrator::outputImage(char *filename)
+{
+	film->outputImage(filename , 1.f , 2.2f);
 }

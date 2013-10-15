@@ -33,6 +33,8 @@ public:
     
     void visualize(const std::vector<Photon>& photons , 
     			   Scene& scene , char *filename);
+
+	void outputImage(char *filename);
 };
 
 #endif

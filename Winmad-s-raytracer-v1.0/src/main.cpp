@@ -8,6 +8,7 @@
 #include "tinyxml/tinyxml.h"
 
 Parameters para;
+SurfaceIntegrator *integrator;
 WhittedIntegrator whitted;
 PathIntegrator pathIntegrator;
 PhotonIntegrator photonIntegrator;
@@ -18,18 +19,21 @@ int main(int argc , char* argv[])
 	if (!strcmp(argv[3] , "-r"))
 	{
 		whitted.init(argv[1] , para);
-		whitted.render(argv[2]);
+		whitted.render();
+		whitted.outputImage(argv[2]);
 	}
 	else if (!strcmp(argv[3] , "-p"))
 	{
 		pathIntegrator.init(argv[1] , para);
-		pathIntegrator.render(argv[2]);
+		pathIntegrator.render();
+		pathIntegrator.outputImage(argv[2]);
 	}
 	else if (!strcmp(argv[3] , "-pm"))
 	{
 		photonIntegrator.init(argv[1] , para);
 		photonIntegrator.buildPhotonMap(photonIntegrator.scene);
-		photonIntegrator.render(argv[2]);
+		photonIntegrator.render();
+		photonIntegrator.outputImage(argv[2]);
 	}
 	/*
 	else if (!strcmp(argv[3] , "-igi"))

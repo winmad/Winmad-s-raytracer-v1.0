@@ -2,6 +2,7 @@
 #define SURFACE_INTEGRATOR_H
 
 #include "../scene/scene.h"
+#include "../scene/film.h"
 #include "../sampler/sampler.h"
 #include "../math/rng.h"
 #include "../material/bsdf.h"
@@ -17,11 +18,15 @@ public:
 
 	RNG rng;
 
+	ImageFilm *film;
+
 	virtual void init(char *filename , Parameters& para);
 
 	virtual Color3 raytracing(const Ray& ray , int dep);
 
-	void render(char *filename);
+	virtual void render();
+
+	virtual void outputImage(char *filename);
 };
 
 #endif

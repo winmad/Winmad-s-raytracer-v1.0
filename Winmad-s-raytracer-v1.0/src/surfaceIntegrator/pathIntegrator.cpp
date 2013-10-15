@@ -10,6 +10,8 @@ void PathIntegrator::init(char *filename , Parameters& para)
 	scene.init(filename , para);
 
 	height = para.HEIGHT; width = para.WIDTH;
+
+	film = new ImageFilm(height , width);
 }
 
 // MIS power = 1, balance heuristic
