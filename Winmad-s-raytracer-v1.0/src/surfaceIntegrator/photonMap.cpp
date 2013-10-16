@@ -2,7 +2,7 @@
 #include "../sampler/sampler.h"
 #include <opencv2/opencv.hpp>
 
-static FILE *fp = fopen("debug_pm.txt" , "w");
+//static FILE *fp = fopen("debug_pm.txt" , "w");
 
 void PhotonIntegrator::init(char *filename , Parameters& para)
 {

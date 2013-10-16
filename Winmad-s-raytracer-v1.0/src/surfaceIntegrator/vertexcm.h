@@ -88,6 +88,10 @@ public:
 
 	void runIteration(int iter);
 
+	void render();
+
+	void outputImage(char *filename);
+
 	/***********************
 	 *	light path tracing */
 	void generateLightSample(SubPathState& lightState);
@@ -116,6 +120,7 @@ public:
 		BSDF& cameraBsdf , const Vector3& cameraHitPos ,
 		SubPathState& cameraState);
 	/************************/
+
 	Real mis(Real pdf);
 };
 

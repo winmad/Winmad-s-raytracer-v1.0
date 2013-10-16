@@ -283,10 +283,14 @@ Color3 BSDF::sample(const Scene& scene , const Vector3& rand3 ,
 	if (sampledBSDFType)
 		*sampledBSDFType = sampledComponent;
 
+	if (matId < 0)
+		return Color3(0);
+
 	const Material& mat = scene.materials[matId];
 
 	pdf = 0;
 	Color3 res(0);
+
 	Vector3 woLocal;
 
 	if (sampledComponent == BSDF_DIFFUSE)

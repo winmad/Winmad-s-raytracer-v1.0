@@ -4,6 +4,7 @@
 #include "surfaceIntegrator/whitted.h"
 #include "surfaceIntegrator/pathIntegrator.h"
 #include "surfaceIntegrator/photonMap.h"
+#include "surfaceIntegrator/vertexcm.h"
 #include <opencv2/opencv.hpp>
 #include "tinyxml/tinyxml.h"
 
@@ -12,6 +13,7 @@ SurfaceIntegrator *integrator;
 WhittedIntegrator whitted;
 PathIntegrator pathIntegrator;
 PhotonIntegrator photonIntegrator;
+VertexCM vertexcmIntegrator;
 
 int main(int argc , char* argv[])
 {
@@ -34,6 +36,12 @@ int main(int argc , char* argv[])
 		photonIntegrator.buildPhotonMap(photonIntegrator.scene);
 		photonIntegrator.render();
 		photonIntegrator.outputImage(argv[2]);
+	}
+	else if (!strcmp(argv[3] , "-vcm"))
+	{
+		vertexcmIntegrator.init(argv[1] , para);
+		vertexcmIntegrator.render();
+		vertexcmIntegrator.outputImage(argv[2]);
 	}
 	/*
 	else if (!strcmp(argv[3] , "-igi"))

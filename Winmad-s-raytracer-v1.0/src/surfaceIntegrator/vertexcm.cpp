@@ -18,6 +18,28 @@ void VertexCM::init(char *filename , Parameters& para)
 	film = new ImageFilm(height , width);
 }
 
+void VertexCM::render()
+{
+	for (int iter = 0; iter < iterations; iter++)
+		runIteration(iter);
+}
+
+static FILE *fp = fopen("debug_vcm.txt" , "w");
+
+void VertexCM::outputImage(char *filename)
+{
+	for (int i = 0; i < height; i++)
+	{
+		for (int j = 0; j < width; j++)
+		{
+			Color3 tmp = film->color[i][j];
+			fprintf(fp , "c(%d,%d)=(%.3f,%.3f,%.3f)\n" , i , j ,
+				tmp.r , tmp.g , tmp.b);
+		}
+	}
+	film->outputImage(filename , 1.f / iterations , 2.2);
+}
+
 void VertexCM::runIteration(int iter)
 {
 	int pathNum = height * width;
@@ -194,12 +216,36 @@ void VertexCM::runIteration(int iter)
 				
 				for (int i = st; i < ed; i++)
 				{
+					PathVertex& lightVertex = lightVertices[i];
+
+					if (lightVertex.pathLength + 1 + 
+						cameraState.pathLength < minPathLength)
+						continue;
+
+					if (lightVertex.pathLength + 1 +
+						cameraState.pathLength > maxPathLength)
+						break;
+
+					Color3 tmp = connectVertices(lightVertex ,
+						bsdf , hitPos , cameraState);
+
+					color = color + (cameraState.throughput |
+						lightVertex.throughput | tmp);
 				}
 			}
 
 			// vertex merging
 			if (!bsdf.isDelta)
 			{
+				RangeQuery query(*this , hitPos , bsdf , cameraState);
+				std::vector<PathVertex> mergeLightVertices;
+				tree.searchVertexInRadius(mergeLightVertices , tree.root ,
+					hitPos , radius);
+				for (int i = 0; i < mergeLightVertices.size(); i++)
+					query.process(mergeLightVertices[i]);
+
+				color = color + (cameraState.throughput | query.contrib) *
+					vmNormalization;
 			}
 
 			if (!sampleScattering(bsdf , hitPos , cameraState))
@@ -208,8 +254,6 @@ void VertexCM::runIteration(int iter)
 
 		film->addColor((int)screenSample.x , (int)screenSample.y , color);
 	}
-
-	iterations++;
 }
 
 void VertexCM::generateLightSample(SubPathState& lightState)
@@ -421,6 +465,8 @@ Color3 VertexCM::getLightRadiance(AbstractLight *light ,
 Color3 VertexCM::getDirectIllumination(SubPathState& cameraState , 
 	const Vector3& hitPos , BSDF& bsdf)
 {
+	Color3 res(0);
+
 	int lightCount = scene.lights.size();
 	Real lightPickProb = 1.f / lightCount;
 
@@ -433,8 +479,6 @@ Color3 VertexCM::getDirectIllumination(SubPathState& cameraState ,
 	Color3 illu = light->illuminance(scene.sceneSphere ,
 		hitPos , rng.randVector3() , dirToLight , dist ,
 		directPdf , &emissionPdf , &cosAtLight);
-
-	Color3 res(0);
 
 	if (illu.isBlack())
 		return res;
@@ -466,6 +510,65 @@ Color3 VertexCM::getDirectIllumination(SubPathState& cameraState ,
 
 	if (res.isBlack() || scene.occluded(hitPos , dirToLight ,
 		hitPos + dirToLight * dist))
+		return Color3(0);
+
+	return res;
+}
+
+Color3 VertexCM::connectVertices(PathVertex& lightVertex , 
+	BSDF& cameraBsdf , const Vector3& cameraHitPos , 
+	SubPathState& cameraState)
+{
+	Vector3 dir = lightVertex.hitPos - cameraHitPos;
+	Real dist2 = dir.sqrLength();
+	Real dist = std::sqrt(dist2);
+	dir = dir / dist;
+
+	Color3 res(0);
+
+	Real cosAtCamera , cameraBsdfDirPdf , cameraBsdfRevPdf;
+	Color3 cameraBsdfFactor = cameraBsdf.f(scene , dir , cosAtCamera ,
+		&cameraBsdfDirPdf , &cameraBsdfRevPdf);
+
+	if (cameraBsdfFactor.isBlack())
+		return res;
+
+	Real cameraContProb = cameraBsdf.continueProb;
+	cameraBsdfDirPdf *= cameraContProb;
+	cameraBsdfRevPdf *= cameraContProb;
+
+	Real cosAtLight , lightBsdfDirPdf , lightBsdfRevPdf;
+	Color3 lightBsdfFactor = lightVertex.bsdf.f(scene , -dir , cosAtLight ,
+		&lightBsdfDirPdf , &lightBsdfRevPdf);
+
+	if (lightBsdfFactor.isBlack())
+		return res;
+
+	Real lightContProb = lightVertex.bsdf.continueProb;
+	lightBsdfDirPdf *= lightContProb;
+	lightBsdfRevPdf *= lightContProb;
+
+	Real geometryTerm = cosAtLight * cosAtCamera / dist2;
+	if (cmp(geometryTerm) < 0)
+		return res;
+
+	Real cameraBsdfDirPdfArea = pdfWtoA(cameraBsdfDirPdf , dist , cosAtLight);
+	Real lightBsdfDirPdfArea = pdfWtoA(lightBsdfDirPdf , dist , cosAtCamera);
+
+	Real weightLight = mis(cameraBsdfDirPdfArea) *
+		(misVmWeightFactor + lightVertex.dVCM + 
+		lightVertex.dVC * mis(lightBsdfRevPdf));
+
+	Real weightCamera = mis(lightBsdfDirPdfArea) *
+		(misVmWeightFactor + cameraState.dVCM +
+		cameraState.dVC * mis(cameraBsdfRevPdf));
+
+	Real misWeight = 1.f / (weightLight + 1.f + weightCamera);
+
+	res = (cameraBsdfFactor | lightBsdfFactor) * misWeight * geometryTerm;
+
+	if (res.isBlack() || scene.occluded(cameraHitPos , dir , 
+		cameraHitPos + dir * dist))
 		return Color3(0);
 
 	return res;
