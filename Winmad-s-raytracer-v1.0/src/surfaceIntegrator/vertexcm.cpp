@@ -41,6 +41,9 @@ void VertexCM::runIteration(int iter)
 	lightVertices.reserve(pathNum);
 	lightVertices.clear();
 
+	////////////////////////////////////////////////////////////
+	// generate light paths
+	////////////////////////////////////////////////////////////
 	for (int pathIndex = 0; pathIndex < pathNum; pathIndex++)
 	{
 		SubPathState lightState;
@@ -48,7 +51,78 @@ void VertexCM::runIteration(int iter)
 
 		for (;; lightState.pathLength++)
 		{
+			Ray ray(lightState.pathOrigin + lightState.dir * EPS ,
+				lightState.dir);
+			Intersection inter;
+			if (scene.intersect(ray , inter) == NULL)
+				break;
+
+			Vector3 hitPos = inter.p;
+
+			BSDF bsdf(-ray.dir , inter , scene);
+			if (!bsdf.isValid())
+				break;
+
+			if (lightState.pathLength > 1 || lightState.isFiniteLight == 1)
+				lightState.dVCM *= mis(SQR(inter.t));
+
+			lightState.dVCM /= mis(std::abs(bsdf.cosWi()));
+			lightState.dVC /= mis(std::abs(bsdf.cosWi()));
+			lightState.dVM /= mis(std::abs(bsdf.cosWi()));
+
+			// store lightVertex
+			if (!bsdf.isDelta)
+			{
+				PathVertex lightVertex;
+				lightVertex.hitPos = hitPos;
+				lightVertex.throughput = lightState.throughput;
+				lightVertex.pathLength = lightState.pathLength;
+				lightVertex.bsdf = bsdf;
+				lightVertex.dVCM = lightState.dVCM;
+				lightVertex.dVC = lightState.dVC;
+				lightVertex.dVM = lightState.dVM;
+
+				lightVertices.push_back(lightVertex);
+			}
+
+			// connect to camera
+			if (!bsdf.isDelta)
+			{
+				if (lightState.pathLength + 1 >= minPathLength)
+				{
+					Vector3 imagePos = scene.camera.worldToRaster.tPoint(hitPos);
+					if (scene.camera.checkRaster(imagePos.x , imagePos.y))
+					{
+						Color3 res = connectToCamera(lightState , hitPos , bsdf);
+						film->addColor((int)imagePos.x , (int)imagePos.y , res);
+					}
+				}
+			}
+
+			if (lightState.pathLength + 2 > maxPathLength)
+				break;
+
+			if (!sampleScattering(bsdf , hitPos , lightState))
+				break;
 		}
+
+		pathEnds[pathIndex] = (int)lightVertices.size();
+	}
+
+	////////////////////////////////////////////////////////////
+	// build vertex kd-tree
+	////////////////////////////////////////////////////////////
+	tree.init(lightVertices);
+	tree.buildTree(tree.root , 0);
+
+	////////////////////////////////////////////////////////////
+	// generate camera paths
+	////////////////////////////////////////////////////////////
+	for (int pathIndex = 0; pathIndex < pathNum; pathIndex++)
+	{
+		SubPathState cameraState;
+		Vector3 screenSample = generateCameraSample(pathIndex , cameraState);
+		Color3 color(0);
 	}
 }
 
@@ -77,11 +151,124 @@ void VertexCM::generateLightSample(SubPathState& lightState)
 
 	if (!light->isDelta())
 	{
-
+		Real cosLight = light->isFinite() ? cosAtLight : 1.f;
+		lightState.dVC = mis(cosLight / emissionPdf);
 	}
 	else
 	{
+		lightState.dVC = 0.f;
 	}
+
+	lightState.dVM = lightState.dVC * misVcWeightFactor;
+}
+
+Color3 VertexCM::connectToCamera(const SubPathState& lightState , 
+	const Vector3& hitPos , BSDF& bsdf)
+{
+	Color3 res(0);
+
+	Camera& camera = scene.camera;
+	Vector3 dirToCamera = camera.pos - hitPos;
+
+	if (cmp(-dirToCamera ^ camera.forward) <= 0)
+		return res;
+
+	Real distEye2 = dirToCamera.sqrLength();
+	Real dist = std::sqrt(distEye2);
+	dirToCamera = dirToCamera / dist;
+
+	Real cosToCamera , bsdfDirPdf , bsdfRevPdf;
+	Color3 bsdfFactor = bsdf.f(scene , dirToCamera , cosToCamera ,
+		&bsdfDirPdf , &bsdfRevPdf);
+
+	if (bsdfFactor.isBlack())
+		return res;
+
+	bsdfRevPdf *= bsdf.continueProb;
+
+	Real cosAtCamera = (-dirToCamera) ^ camera.forward;
+	Real imagePointToCameraDist = camera.imagePlaneDist / cosAtCamera;
+	Real imageToSolidAngleFactor = SQR(imagePointToCameraDist) / cosAtCamera;
+	Real imageToSurfaceFactor = imageToSolidAngleFactor * std::abs(cosAtCamera) / distEye2;
+
+	Real cameraPdfArea = imageToSurfaceFactor /* * 1.f */; // pixel area is 1
+
+	Real weightLight = mis(cameraPdfArea / lightSubPathNum) * 
+		(misVmWeightFactor + lightState.dVCM + lightState.dVC * mis(bsdfRevPdf));
+
+	Real weightCamera = 0.f;
+
+	Real misWeight = 1.f / (weightLight + 1.f);
+
+	Real surfaceToImageFactor = 1.f / imageToSurfaceFactor;
+
+	res = (lightState.throughput | bsdfFactor) * misWeight /
+		(lightSubPathNum * surfaceToImageFactor);
+
+	if (res.isBlack())
+		return res;
+
+	if (scene.occluded(hitPos , dirToCamera , camera.pos))
+		return Color3(0);
+
+	return res;
+}
+
+bool VertexCM::sampleScattering(BSDF& bsdf , 
+	const Vector3& hitPos , SubPathState& pathState)
+{
+	Real bsdfDirPdf , cosWo;
+	int sampledBSDFType;
+	Color3 bsdfFactor = bsdf.sample(scene , rng.randVector3() ,
+		pathState.dir , bsdfDirPdf , cosWo , &sampledBSDFType);
+
+	if (bsdfFactor.isBlack())
+		return 0;
+
+	Real bsdfRevPdf = bsdfDirPdf;
+	if ((sampledBSDFType & BSDF_SPECULAR) == 0)
+		bsdfRevPdf = bsdf.pdf(scene , pathState.dir , 1);
+
+	Real contProb = bsdf.continueProb;
+	if (rng.randFloat() > contProb)
+		return 0;
+
+	bsdfDirPdf *= contProb;
+	bsdfRevPdf *= contProb;
+
+	// Partial sub-path MIS quantities
+	// the evaluation is completed when the actual hit point is known!
+	// i.e. after tracing the ray, out of the procedure
+	if (sampledBSDFType & BSDF_SPECULAR)
+	{
+		pathState.dVCM = 0.f;
+		assert(bsdfDirPdf == bsdfRevPdf);
+		pathState.dVC *= mis(cosWo);
+		pathState.dVM *= mis(cosWo);
+	}
+	else
+	{
+		pathState.dVC = mis(cosWo / bsdfDirPdf) *
+			(pathState.dVC * mis(bsdfRevPdf) + pathState.dVCM +
+			misVmWeightFactor);
+		pathState.dVM = mis(cosWo / bsdfDirPdf) *
+			(pathState.dVM * mis(bsdfRevPdf) + 
+			pathState.dVCM * misVcWeightFactor + 1.f);
+		pathState.dVCM = mis(1.f / bsdfDirPdf);
+		pathState.specularPath &= 0;
+	}
+
+	pathState.pathOrigin = hitPos;
+	pathState.throughput = (pathState.throughput | bsdfFactor) *
+		(cosWo / bsdfDirPdf);
+
+	return 1;
+}
+
+void VertexCM::generateCameraSample(const int pathIndex , 
+	SubPathState& cameraState)
+{
+	
 }
 
 Real VertexCM::mis(Real pdf)

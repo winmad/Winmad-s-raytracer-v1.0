@@ -88,8 +88,24 @@ public:
 
 	void runIteration(int iter);
 
+	/***********************
+	 *	light path tracing */
 	void generateLightSample(SubPathState& lightState);
 
+	Color3 connectToCamera(const SubPathState& lightState ,
+		const Vector3& hitPos , BSDF& bsdf);
+
+	// sample both light path and camera path
+	bool sampleScattering(BSDF& bsdf , const Vector3& hitPos , 
+		SubPathState& pathState);
+	/***********************/
+
+	/***********************
+	 *	camera path tracing */
+	void generateCameraSample(const int pathIndex , 
+		SubPathState& cameraState);
+
+	/************************/
 	Real mis(Real pdf);
 };
 
