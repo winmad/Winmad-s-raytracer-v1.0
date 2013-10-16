@@ -1,22 +1,5 @@
 #include "vertexKDtree.h"
-
-static Real get_projection(const Vector3& v , int axis)
-{
-	if (axis == 0)
-		return v.x;
-	if (axis == 1)
-		return v.y;
-	if (axis == 2)
-		return v.z;
-	return INF;
-}
-
-static int cmp_sort_point(const void *a , const void *b)
-{
-	VertexSorted p1 = *(VertexSorted*)a;
-	VertexSorted p2 = *(VertexSorted*)b;
-	return cmp(p1.pos - p2.pos);
-}
+#include "vertexcm.h"
 
 void VertexKDtree::init(const std::vector<PathVertex>& vertices)
 {
@@ -124,41 +107,4 @@ void VertexKDtree::buildTree(VertexKDtreeNode *tr , int dep)
 
 	buildTree(left , dep + 1);
 	buildTree(right , dep + 1);
-}
-
-void VertexKDtree::searchVertexInRadius(std::vector<PathVertex>& vertices , 
-	VertexKDtreeNode *tr , const Vector3& pos , Real radius)
-{
-	if (tr == NULL)
-		return;
-	if (tr->vertices.size() <= 0)
-		return;
-
-	VertexKDtreeNode *near , *far;
-	Real p_pos = get_projection(pos , tr->axis);
-	Real split_pos = get_projection(tr->vertices[0].hitPos , tr->axis);
-	Real delta = p_pos - split_pos;
-
-	if (cmp(delta) <= 0)
-	{
-		near = tr->left;
-		far = tr->right;
-	}
-	else
-	{
-		near = tr->right;
-		far = tr->left;
-	}
-
-	searchVertexInRadius(vertices , near , pos , radius);
-
-	Vector3 d = pos - tr->vertices[0].hitPos;
-	Real dis = d.length();
-
-	if (cmp(dis - radius) < 0)
-	{
-		vertices.push_back(tr->vertices[0]);
-	}
-	if (cmp(delta - radius) < 0)
-		searchVertexInRadius(vertices , far , pos , radius);
 }

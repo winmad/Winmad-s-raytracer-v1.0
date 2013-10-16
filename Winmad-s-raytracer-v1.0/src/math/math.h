@@ -4,7 +4,7 @@
 #include <cstdio>
 #include <cmath>
 #include <algorithm>
-#include <assert.h>
+#include <cassert>
 
 #define SQR(x) ((x) * (x))
 

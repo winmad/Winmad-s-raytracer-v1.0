@@ -239,10 +239,8 @@ void VertexCM::runIteration(int iter)
 			{
 				RangeQuery query(*this , hitPos , bsdf , cameraState);
 				std::vector<PathVertex> mergeLightVertices;
-				tree.searchVertexInRadius(mergeLightVertices , tree.root ,
-					hitPos , radius);
-				for (int i = 0; i < mergeLightVertices.size(); i++)
-					query.process(mergeLightVertices[i]);
+				tree.searchVertexInRadius(tree.root ,
+					hitPos , radius , query);
 
 				color = color + (cameraState.throughput | query.contrib) *
 					vmNormalization;
