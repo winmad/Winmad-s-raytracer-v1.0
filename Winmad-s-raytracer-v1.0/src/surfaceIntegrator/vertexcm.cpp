@@ -123,7 +123,93 @@ void VertexCM::runIteration(int iter)
 		SubPathState cameraState;
 		Vector3 screenSample = generateCameraSample(pathIndex , cameraState);
 		Color3 color(0);
+
+		for (;; cameraState.pathLength++)
+		{
+			Ray ray(cameraState.pathOrigin + cameraState.dir * EPS ,
+				cameraState.dir);
+
+			Intersection inter;
+
+			if (scene.intersect(ray , inter) == NULL)
+			{
+				if (scene.background != NULL)
+				{
+					if (cameraState.pathLength >= minPathLength)
+					{
+						color = color + (cameraState.throughput |
+							getLightRadiance(scene.background ,
+							cameraState , Vector3(0) , ray.dir));
+					}
+				}
+				break;
+			}
+
+			Vector3 hitPos = inter.p;
+
+			BSDF bsdf(-ray.dir , inter , scene);
+			if (!bsdf.isValid())
+				break;
+
+			cameraState.dVCM *= mis(SQR(inter.t));
+			cameraState.dVCM /= mis(std::abs(bsdf.cosWi()));
+			cameraState.dVC /= mis(std::abs(bsdf.cosWi()));
+			cameraState.dVM /= mis(std::abs(bsdf.cosWi()));
+
+			if (inter.matId < 0)
+			{
+				AbstractLight *light = scene.lights[-inter.matId - 1];
+
+				if (cameraState.pathLength >= minPathLength)
+				{
+					color = color + (cameraState.throughput |
+						getLightRadiance(light , cameraState , 
+						hitPos , ray.dir));
+				}
+				break;
+			}
+
+			if (cameraState.pathLength >= maxPathLength)
+				break;
+
+			// vertex connection: connect to light source
+			if (!bsdf.isDelta)
+			{
+				if (cameraState.pathLength + 1 >= minPathLength)
+				{
+					color = color + (cameraState.throughput |
+						getDirectIllumination(cameraState , hitPos , bsdf));
+				}
+			}
+
+			// vertex connection: connect to light vertices
+			if (!bsdf.isDelta)
+			{
+				int st , ed;
+				if (pathIndex == 0)
+					st = 0;
+				else
+					st = pathEnds[pathIndex - 1];
+				ed = pathEnds[pathIndex];
+				
+				for (int i = st; i < ed; i++)
+				{
+				}
+			}
+
+			// vertex merging
+			if (!bsdf.isDelta)
+			{
+			}
+
+			if (!sampleScattering(bsdf , hitPos , cameraState))
+				break;
+		}
+
+		film->addColor((int)screenSample.x , (int)screenSample.y , color);
 	}
+
+	iterations++;
 }
 
 void VertexCM::generateLightSample(SubPathState& lightState)
@@ -268,7 +354,121 @@ bool VertexCM::sampleScattering(BSDF& bsdf ,
 Vector3 VertexCM::generateCameraSample(const int pathIndex , 
 	SubPathState& cameraState)
 {
-	
+	Camera& camera = scene.camera;
+	int y = pathIndex % width;
+	int x = pathIndex / width;
+
+	Vector3 jitter = rng.randVector3();
+	Vector3 sample = Vector3((Real)x + jitter.x , 
+		(Real)y + jitter.y , 0.f);
+
+	Ray ray = camera.generateRay(sample.x , sample.y);
+
+	Real cosAtCamera = camera.forward ^ ray.dir;
+	Real imagePointToCameraDist = camera.imagePlaneDist /
+		cosAtCamera;
+	Real imageToSolidAngleFactor = SQR(imagePointToCameraDist) /
+		cosAtCamera;
+
+	Real cameraPdf = imageToSolidAngleFactor;
+
+	cameraState.pathOrigin = ray.origin;
+	cameraState.dir = ray.dir;
+	cameraState.throughput = Color3(1);
+
+	cameraState.pathLength = 1;
+	cameraState.specularPath = 1;
+
+	cameraState.dVCM = mis(lightSubPathNum / cameraPdf);
+	cameraState.dVC = 0;
+	cameraState.dVM = 0;
+
+	return sample;
+}
+
+Color3 VertexCM::getLightRadiance(AbstractLight *light , 
+	SubPathState& cameraState , const Vector3& hitPos , 
+	const Vector3& rayDir)
+{
+	int lightCount = scene.lights.size();
+	Real lightPickProb = 1.f / lightCount;
+
+	Real directPdfArea , emissionPdf;
+	Color3 radiance = light->getRadiance(scene.sceneSphere ,
+		rayDir , hitPos , &directPdfArea , &emissionPdf);
+
+	Color3 res(0);
+
+	if (radiance.isBlack())
+		return res;
+
+	if (cameraState.pathLength == 1)
+		return radiance;
+
+	directPdfArea *= lightPickProb;
+	emissionPdf *= lightPickProb;
+
+	Real weightCamera = mis(directPdfArea) * cameraState.dVCM +
+		mis(emissionPdf) * cameraState.dVC;
+
+	Real weightLight = 0.f;
+
+	Real misWeight = 1.f / (1.f + weightCamera);
+
+	return radiance * misWeight;
+}
+
+Color3 VertexCM::getDirectIllumination(SubPathState& cameraState , 
+	const Vector3& hitPos , BSDF& bsdf)
+{
+	int lightCount = scene.lights.size();
+	Real lightPickProb = 1.f / lightCount;
+
+	int lightId = (int)(rng.randFloat() * lightCount);
+	AbstractLight *light = scene.lights[lightId];
+
+	Vector3 dirToLight;
+	Real dist , directPdf , emissionPdf , cosAtLight;
+
+	Color3 illu = light->illuminance(scene.sceneSphere ,
+		hitPos , rng.randVector3() , dirToLight , dist ,
+		directPdf , &emissionPdf , &cosAtLight);
+
+	Color3 res(0);
+
+	if (illu.isBlack())
+		return res;
+
+	Real bsdfDirPdf , bsdfRevPdf , cosToLight;
+
+	Color3 bsdfFactor = bsdf.f(scene , dirToLight ,
+		cosToLight , &bsdfDirPdf , &bsdfRevPdf);
+
+	if (bsdfFactor.isBlack())
+		return res;
+
+	Real contProb = bsdf.continueProb;
+
+	bsdfDirPdf *= light->isDelta() ? 0.f : contProb;
+	bsdfRevPdf *= contProb;
+
+	Real weightLight = mis(bsdfDirPdf / 
+		(lightPickProb * directPdf));
+
+	Real weightCamera = mis(emissionPdf * cosToLight /
+		(directPdf * cosAtLight)) * (misVmWeightFactor +
+		cameraState.dVCM + cameraState.dVC * mis(bsdfRevPdf));
+
+	Real misWeight = 1.f / (weightLight + 1.f + weightCamera);
+
+	res = (illu | bsdfFactor) * (misWeight * cosToLight / 
+		(lightPickProb * directPdf));
+
+	if (res.isBlack() || scene.occluded(hitPos , dirToLight ,
+		hitPos + dirToLight * dist))
+		return Color3(0);
+
+	return res;
 }
 
 Real VertexCM::mis(Real pdf)

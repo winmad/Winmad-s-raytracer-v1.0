@@ -105,6 +105,16 @@ public:
 	Vector3 generateCameraSample(const int pathIndex , 
 		SubPathState& cameraState);
 
+	Color3 getLightRadiance(AbstractLight *light , 
+		SubPathState& cameraState , const Vector3& hitPos ,
+		const Vector3& rayDir);
+
+	Color3 getDirectIllumination(SubPathState& cameraState ,
+		const Vector3& hitPos , BSDF& bsdf);
+
+	Color3 connectVertices(PathVertex& lightVertex , 
+		BSDF& cameraBsdf , const Vector3& cameraHitPos ,
+		SubPathState& cameraState);
 	/************************/
 	Real mis(Real pdf);
 };
