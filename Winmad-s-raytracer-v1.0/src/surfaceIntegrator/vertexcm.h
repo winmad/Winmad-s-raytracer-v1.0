@@ -22,20 +22,20 @@ public:
 	class RangeQuery
 	{
 	public:
-		const VertexCM& vertexCM;
-		const Vector3& cameraPos;
-		const BSDF& cameraBsdf;
-		const SubPathState& cameraState;
+		VertexCM& vertexCM;
+		Vector3& cameraPos;
+		BSDF& cameraBsdf;
+		SubPathState& cameraState;
 		Color3 contrib;
 
-		RangeQuery(const VertexCM& vertexCM , 
-			const Vector3& cameraPos , const BSDF& cameraBsdf ,
-			const SubPathState& cameraState)
+		RangeQuery(VertexCM& vertexCM , 
+			Vector3& cameraPos , BSDF& cameraBsdf ,
+			SubPathState& cameraState)
 			: vertexCM(vertexCM) , cameraPos(cameraPos) ,
 			cameraBsdf(cameraBsdf) , cameraState(cameraState) ,
 			contrib(0) {}
 
-		void process(const PathVertex& lightVertex)
+		void process(PathVertex& lightVertex)
 		{
 			if (lightVertex.pathLength + cameraState.pathLength > vertexCM.maxPathLength ||
 				lightVertex.pathLength + cameraState.pathLength < vertexCM.minPathLength)
@@ -48,15 +48,32 @@ public:
 			Color3 cameraBsdfFactor = cameraBsdf.f(vertexCM.scene , 
 				lightDir , cosCamera , &cameraBsdfDirPdf , &cameraBsdfRevPdf);
 
+			if (cameraBsdfFactor.isBlack())
+				return;
+
+			cameraBsdfDirPdf *= cameraBsdf.continueProb;
+			cameraBsdfRevPdf *= lightVertex.bsdf.continueProb;
+
+			Real weightLight = lightVertex.dVCM * vertexCM.misVcWeightFactor +
+				lightVertex.dVM * vertexCM.mis(cameraBsdfDirPdf);
+
+			Real weightCamera = cameraState.dVCM * vertexCM.misVcWeightFactor +
+				cameraState.dVM * vertexCM.mis(cameraBsdfRevPdf);
+
+			Real misWeight = 1.f / (weightLight + 1.f + weightCamera);
+
+			contrib = contrib + (cameraBsdfFactor | lightVertex.throughput) *
+				misWeight;
 		}
 	};
 
 	int minPathLength , maxPathLength;
+	int iterations;
 	Real baseRadius;         // initial merging radius
 	Real radiusAlpha;        // radius reduction per iteration
 	Real misVmWeightFactor;
 	Real misVcWeightFactor;
-	Real samplesPerPixel;
+	Real screenPixelNum;
 	Real lightSubPathNum;
 	Real vmNormalization;    // 1 / (PI * radius ^ 2 * lightSubPathNum)
 
@@ -64,6 +81,16 @@ public:
 	std::vector<int> pathEnds;
 
 	VertexKDtree tree;
+
+	VertexCM() {}
+
+	void init(char *filename , Parameters& para);
+
+	void runIteration(int iter);
+
+	void generateLightSample(SubPathState& lightState);
+
+	Real mis(Real pdf);
 };
 
 #endif
