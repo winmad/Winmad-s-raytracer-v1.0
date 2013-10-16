@@ -265,7 +265,7 @@ bool VertexCM::sampleScattering(BSDF& bsdf ,
 	return 1;
 }
 
-void VertexCM::generateCameraSample(const int pathIndex , 
+Vector3 VertexCM::generateCameraSample(const int pathIndex , 
 	SubPathState& cameraState)
 {
 	

@@ -102,7 +102,7 @@ public:
 
 	/***********************
 	 *	camera path tracing */
-	void generateCameraSample(const int pathIndex , 
+	Vector3 generateCameraSample(const int pathIndex , 
 		SubPathState& cameraState);
 
 	/************************/
