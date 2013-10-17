@@ -20,7 +20,7 @@ void Scene::addMaterial(Material mat)
 Geometry* Scene::intersect(const Ray& ray , Intersection& inter)
 {
     Geometry *g = NULL;
-    g = kdtree.traverse(ray , kdtree.root);
+    g = kdtreeAccel.traverse(ray , kdtreeAccel.root);
     if (g != NULL)
         g->hit(ray , inter);
     return g;
@@ -29,7 +29,7 @@ Geometry* Scene::intersect(const Ray& ray , Intersection& inter)
 bool Scene::intersect(const Ray& ray)
 {
     Geometry *g = NULL;
-    g = kdtree.traverse(ray , kdtree.root);
+    g = kdtreeAccel.traverse(ray , kdtreeAccel.root);
     if (g == NULL)
         return 0;
     else
@@ -38,7 +38,7 @@ bool Scene::intersect(const Ray& ray)
 
 Real Scene::shadowRayTest(const Ray& ray , const Vector3& p)
 {
-	Geometry *g = kdtree.traverse(ray , kdtree.root);
+	Geometry *g = kdtreeAccel.traverse(ray , kdtreeAccel.root);
 	Intersection inter;
 
 	if (g == NULL)
@@ -382,13 +382,13 @@ void Scene::init(char* filename , Parameters& para)
     /* sample point light from area light */
     //lightlist = samplePointsOnAreaLight(areaLightlist , pointLightNum);
     
-	kdtree.init(objs);
-	kdtree.buildTree(kdtree.root , 1);
+	kdtreeAccel.init(objs);
+	kdtreeAccel.buildTree(kdtreeAccel.root , 1);
 
 	// build scene sphere
-	Vector3 diag = kdtree.root->box.r - kdtree.root->box.l;
+	Vector3 diag = kdtreeAccel.root->box.r - kdtreeAccel.root->box.l;
 	Real diameter2 = diag.sqrLength();
-	sceneSphere.sceneCenter = (kdtree.root->box.l + kdtree.root->box.r) * 0.5f;
+	sceneSphere.sceneCenter = (kdtreeAccel.root->box.l + kdtreeAccel.root->box.r) * 0.5f;
 	sceneSphere.sceneRadius = std::sqrt(diameter2) * 0.5f;
 	sceneSphere.invSceneRadiusSqr = 1.f / diameter2;
 }

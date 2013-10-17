@@ -2,7 +2,7 @@
 #include "../sampler/sampler.h"
 #include <opencv2/opencv.hpp>
 
-//static FILE *fp = fopen("debug_pm.txt" , "w");
+static FILE *fp = fopen("debug_pm.txt" , "w");
 
 void PhotonIntegrator::init(char *filename , Parameters& para)
 {
@@ -33,7 +33,16 @@ void PhotonIntegrator::init(char *filename , Parameters& para)
 
 void PhotonIntegrator::outputImage(char *filename)
 {
-	film->outputImage(filename , 1.f / 1000.f , 2.2);
+	for (int i = 0; i < height; i++)
+	{
+		for (int j = 0; j < width; j++)
+		{
+			Color3 tmp = film->color[i][j];
+			fprintf(fp , "c(%d,%d)=(%.3f,%.3f,%.3f)\n" , i , j ,
+				tmp.r , tmp.g , tmp.b);
+		}
+	}
+	film->outputImage(filename , 1.f / 150.f , 2.2);
 }
 
 void PhotonIntegrator::buildPhotonMap(Scene& scene)
@@ -96,9 +105,7 @@ void PhotonIntegrator::buildPhotonMap(Scene& scene)
                             {
                                 causticDone = 1;
                                 nCausticPaths = nShot;
-                                causticMap = new PhotonKDtree();
-                                causticMap->init(causticPhotons);
-                                causticMap->buildTree(causticMap->root , 0);
+                                causticMap = new KdTree<Photon>(causticPhotons);
                             }
                         }
                     }
@@ -111,10 +118,7 @@ void PhotonIntegrator::buildPhotonMap(Scene& scene)
                             {
                                 indirectDone = 1;
                                 nIndirectPaths = nShot;
-                                
-                                indirectMap = new PhotonKDtree();
-                                indirectMap->init(indirectPhotons);
-                                indirectMap->buildTree(indirectMap->root , 0);
+                                indirectMap = new KdTree<Photon>(indirectPhotons);
                             }
                         }
                     }
@@ -157,7 +161,7 @@ void PhotonIntegrator::buildPhotonMap(Scene& scene)
     }
 }
 
-static Color3 estimate(PhotonKDtree *map , int nPaths , int knn ,
+static Color3 estimate(KdTree<Photon> *map , int nPaths , int knn ,
                                   Scene& scene , Intersection& inter , 
 								  const Vector3& wo , Real maxSqrDis)
 {
@@ -166,21 +170,22 @@ static Color3 estimate(PhotonKDtree *map , int nPaths , int knn ,
     if (map == NULL)
         return res;
     
-    std::vector<ClosePhoton> kPhotons;
     Photon photon;
-    photon.p = inter.p;
+    photon.pos = inter.p;
+
+	ClosePhotonQuery query(knn , 0);
 
     Real searchSqrDis = maxSqrDis;
     Real msd; /* max square distance */
-    while (kPhotons.size() < knn)
+    while (query.kPhotons.size() < knn)
     {
         msd = searchSqrDis;
-        kPhotons.clear();
-        map->searchKPhotons(kPhotons , map->root , photon , knn , msd);
+        query.init(msd);
+        map->searchKnn(0 , photon.pos , query);
         searchSqrDis *= 2.0;
     }
     
-    int nFoundPhotons = kPhotons.size();
+    int nFoundPhotons = query.kPhotons.size();
 
     if (nFoundPhotons == 0)
         return res;
@@ -202,23 +207,23 @@ static Color3 estimate(PhotonKDtree *map , int nPaths , int knn ,
         k = 1.0 / PI;
         Real scale = k / (nPaths * msd);
         */
-        if (cmp(nv ^ kPhotons[i].photon->wi) > 0)
+        if (cmp(nv ^ query.kPhotons[i].photon->wi) > 0)
         {
-            Color3 brdf = bsdf.f(scene , kPhotons[i].photon->wi , 
+            Color3 brdf = bsdf.f(scene , query.kPhotons[i].photon->wi , 
 				cosTerm , &pdf);
 			if (brdf.isBlack())
 				continue;
-            res = res + (brdf | kPhotons[i].photon->alpha) * 
+            res = res + (brdf | query.kPhotons[i].photon->alpha) * 
 				(cosTerm * scale / pdf);
         }
         else
         {
-			Vector3 wi(kPhotons[i].photon->wi);
+			Vector3 wi(query.kPhotons[i].photon->wi);
 			wi.z *= -1.f;
 			Color3 brdf = bsdf.f(scene , wi , cosTerm , &pdf);
 			if (brdf.isBlack())
 				continue;
-			res = res + (brdf | kPhotons[i].photon->alpha) * 
+			res = res + (brdf | query.kPhotons[i].photon->alpha) * 
 				(cosTerm * scale / pdf);
         }
     }
@@ -264,7 +269,7 @@ static Color3 directIllumination(Scene& scene , Intersection& inter ,
     return res;
 }
 
-static Color3 finalGathering(PhotonKDtree *map , Scene& scene , 
+static Color3 finalGathering(KdTree<Photon> *map , Scene& scene , 
 							 Intersection& inter , RNG& rng , const Vector3& wo ,
                              int gatherSamples , int knn , Real maxSqrDis)
 {
@@ -387,7 +392,7 @@ void PhotonIntegrator::visualize(const std::vector<Photon>& photons ,
     for (int i = 0; i < photons.size(); i++)
     {
         Photon photon = photons[i];
-        Vector3 p = photon.p;
+        Vector3 p = photon.pos;
         Real x , y , z0 , t;
         z0 = 0;
         Vector3 dir = p - scene.camera.pos;

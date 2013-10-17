@@ -3,6 +3,7 @@
 
 #include "../scene/scene.h"
 #include "../scene/film.h"
+#include "../scene/KDtree.h"
 #include "../sampler/sampler.h"
 #include "../math/rng.h"
 #include "../material/bsdf.h"

@@ -5,6 +5,7 @@
 #include <cmath>
 #include <algorithm>
 #include <cassert>
+#include <cstdint>
 
 #define SQR(x) ((x) * (x))
 

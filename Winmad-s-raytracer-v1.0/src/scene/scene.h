@@ -9,7 +9,7 @@
 #include "../geometry/intersection.h"
 #include "camera.h"
 #include "light.h"
-#include "KDtree.h"
+#include "KDtreeAccel.h"
 #include "../parameters.h"
 #include <vector>
 #include <map>
@@ -18,7 +18,7 @@ class Scene
 {
 public:
 	std::vector<Geometry*> objs;
-	KDtree kdtree;
+	KDtreeAccel kdtreeAccel;
 	Camera camera;
 	std::vector<Material> materials;
 	std::vector<AbstractLight*> lights;

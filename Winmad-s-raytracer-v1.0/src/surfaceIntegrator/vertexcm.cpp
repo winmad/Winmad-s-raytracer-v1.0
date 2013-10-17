@@ -4,7 +4,7 @@ void VertexCM::init(char *filename , Parameters& para)
 {
 	minPathLength = 0;
 	maxPathLength = 10;
-	iterations = 1;
+	iterations = 10;
 
 	samplesPerPixel = para.SAMPLES_PER_PIXEL;
 	
@@ -26,7 +26,7 @@ void VertexCM::render()
 		runIteration(iter);
 }
 
-static FILE *fp = fopen("debug_vcm.txt" , "w");
+//static FILE *fp = fopen("debug_vcm.txt" , "w");
 
 void VertexCM::outputImage(char *filename)
 {
@@ -98,7 +98,7 @@ void VertexCM::runIteration(int iter)
 			if (!bsdf.isDelta)
 			{
 				PathVertex lightVertex;
-				lightVertex.hitPos = hitPos;
+				lightVertex.pos = hitPos;
 				lightVertex.throughput = lightState.throughput;
 				lightVertex.pathLength = lightState.pathLength;
 				lightVertex.bsdf = bsdf;
@@ -136,9 +136,7 @@ void VertexCM::runIteration(int iter)
 	////////////////////////////////////////////////////////////
 	// build vertex kd-tree
 	////////////////////////////////////////////////////////////
-	tree = new VertexKDtree();
-	tree->init(lightVertices);
-	tree->buildTree(tree->root , 0);
+	tree = new KdTree<PathVertex>(lightVertices);
 
 	////////////////////////////////////////////////////////////
 	// generate camera paths
@@ -242,8 +240,8 @@ void VertexCM::runIteration(int iter)
 			{
 				RangeQuery query(*this , hitPos , bsdf , cameraState);
 				std::vector<PathVertex> mergeLightVertices;
-				tree->searchVertexInRadius(tree->root ,
-					hitPos , radius , query);
+
+				tree->searchInRadius(0 , hitPos , radius , query);
 
 				color = color + (cameraState.throughput | query.contrib) *
 					vmNormalization;
@@ -255,7 +253,7 @@ void VertexCM::runIteration(int iter)
 
 		film->addColor((int)screenSample.x , (int)screenSample.y , color);
 	}
-	//tree->destroy(tree->root);
+	delete tree;
 }
 
 void VertexCM::generateLightSample(SubPathState& lightState)
@@ -521,7 +519,7 @@ Color3 VertexCM::connectVertices(PathVertex& lightVertex ,
 	BSDF& cameraBsdf , const Vector3& cameraHitPos , 
 	SubPathState& cameraState)
 {
-	Vector3 dir = lightVertex.hitPos - cameraHitPos;
+	Vector3 dir = lightVertex.pos - cameraHitPos;
 	Real dist2 = dir.sqrLength();
 	Real dist = std::sqrt(dist2);
 	dir = dir / dist;

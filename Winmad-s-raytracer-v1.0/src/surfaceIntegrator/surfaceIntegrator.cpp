@@ -18,14 +18,14 @@ void SurfaceIntegrator::render()
 	{
 		for (int j = 0; j < width; j++)
 		{
-            res = Color3(0.0 , 0.0 , 0.0);
+            res = Color3(0.f);
 
             for (int k = 0; k < samplesPerPixel; k++)
             {
 				
-                Vector3 v0 = Vector3(j - 0.5 , i - 0.5 , 0);
-                Vector3 v1 = Vector3(j + 0.5 , i - 0.5 , 0);
-				Vector3 v2 = Vector3(j - 0.5 , i + 0.5 , 0);
+                Vector3 v0 = Vector3(j - 0.5f , i - 0.5f , 0);
+                Vector3 v1 = Vector3(j + 0.5f , i - 0.5f , 0);
+				Vector3 v2 = Vector3(j - 0.5f , i + 0.5f , 0);
                 
                 Vector3 posRaster = sampleRectangleStratified(
                     rng.randVector3() ,

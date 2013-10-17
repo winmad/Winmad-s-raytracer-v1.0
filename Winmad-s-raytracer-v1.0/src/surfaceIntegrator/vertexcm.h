@@ -2,7 +2,21 @@
 #define VERTEX_CM_H
 
 #include "surfaceIntegrator.h"
-#include "vertexKDtree.h"
+#include "../math/color.h"
+#include "../math/vector.h"
+#include "../material/bsdf.h"
+#include <vector>
+
+struct PathVertex
+{
+	Vector3 pos;
+	Color3 throughput;
+	int pathLength;
+
+	BSDF bsdf;
+
+	Real dVCM , dVC , dVM;
+};
 
 struct SubPathState
 {
@@ -80,7 +94,7 @@ public:
 	std::vector<PathVertex> lightVertices;
 	std::vector<int> pathEnds;
 
-	VertexKDtree *tree;
+	KdTree<PathVertex> *tree;
 
 	VertexCM() {}
 

@@ -3,67 +3,208 @@
 
 #include "../geometry/ray.h"
 #include "../geometry/geometry.h"
-#include "../geometry/AABB.h"
 #include <vector>
 
-struct Event
+struct KdNode
 {
-	enum EventType
+	Real splitPos;
+	uint32_t splitAxis : 2;
+	uint32_t hasLeftChild : 1 , rightChild : 29;
+
+	void init(Real pos , uint32_t a)
 	{
-		End = 0 , Planar = 1 , Start = 2
-	};
+		splitPos = pos;
+		splitAxis = a;
+		rightChild = (1 << 29) - 1;
+		hasLeftChild = 0;
+	}
 
-	Real pos;
-	EventType type;
-	int index;
+	void initLeaf()
+	{
+		splitAxis = -1;
+		rightChild = (1 << 29) - 1;
+		hasLeftChild = 0;
+	}
 };
 
-enum DivType
-{
-	LeftOnly = 0 , RightOnly , Both
-};
-
-class KDtreeNode
+template<typename NodeData>
+class KdTree
 {
 public:
-	enum Axes
+	KdNode *nodes;
+	NodeData *nodeData;
+	uint32_t totNodes , nextFreeNode;
+
+	KdTree(const std::vector<NodeData>& data);
+
+	~KdTree()
 	{
-		X_axis = 0 , Y_axis , Z_axis , No_axis
-	};
-
-	int objNum;
-	Geometry **objlist;
-	AABB box;
-	KDtreeNode *left , *right;
-
-	int eventNum[3];
-	Event *e[3];
+		delete[] nodes;
+		delete[] nodeData;
+	}
 	
-	DivType *div;
+	void buildTree(uint32_t nodeNum , int st , int ed ,
+		const NodeData **buildNodes);
 
-	Axes axis;
-	Real splitPlane;
+	template<typename Query>
+	void searchInRadius(uint32_t nodeNum , const Vector3& pos ,
+		Real radius , Query& query);
+
+	template<typename Query>
+	void searchKnn(uint32_t nodeNum , const Vector3& pos , 
+		Query& query);
 };
 
-class KDtree
+template<typename NodeData>
+KdTree<NodeData>::KdTree(const std::vector<NodeData>& data)
 {
-public:
-	int totObjNum;
-	
-	int depMax;
+	totNodes = data.size();
+	nextFreeNode = 1;
+	nodes = new KdNode[totNodes];
+	nodeData = new NodeData[totNodes];
+	std::vector<const NodeData*> buildNodes(totNodes , NULL);
+	for (uint32_t i = 0; i < totNodes; i++)
+	{
+		buildNodes[i] = &data[i];
+	}
+	buildTree(0 , 0 , totNodes , &buildNodes[0]);
+}
 
-	KDtreeNode *root;
+template<typename NodeData>
+struct CompareNode
+{
+	int axis;
 
-	KDtree() {}
+	CompareNode(int axis) : axis(axis) {}
 
-	void init(const std::vector<Geometry*>& _objlist);
-
-	void buildTree(KDtreeNode *tr , int dep);
-
-	Geometry* traverse(const Ray& ray , KDtreeNode *tr);
+	bool operator()(const NodeData *d1 , const NodeData *d2) const
+	{
+		return (d1->pos[axis] == d2->pos[axis]) ? (d1 < d2) : 
+			(d1->pos[axis] < d2->pos[axis]);
+	}
 };
 
-// For debug
-void print_tree(FILE *fp , KDtreeNode *tr);
+template<typename NodeData>
+void KdTree<NodeData>::buildTree(uint32_t nodeNum , 
+	int st , int ed , const NodeData **buildNodes)
+{
+	if (st + 1 == ed)
+	{
+		nodes[nodeNum].initLeaf();
+		nodeData[nodeNum] = *buildNodes[st];
+		return;
+	}
+
+	Vector3 l(INF) , r(-INF);
+	for (int i = st; i < ed; i++)
+	{
+		l.x = std::min(l.x , buildNodes[i]->pos.x);
+		l.y = std::min(l.y , buildNodes[i]->pos.y);
+		l.z = std::min(l.z , buildNodes[i]->pos.z);
+		r.x = std::max(r.x , buildNodes[i]->pos.x);
+		r.y = std::max(r.y , buildNodes[i]->pos.y);
+		r.z = std::max(r.z , buildNodes[i]->pos.z);
+	}
+
+	Vector3 diag = r - l;
+	Real tmp = -INF;
+	int splitAxis = -1;
+	for (int i = 0; i <= 2; i++)
+	{
+		if (tmp < diag[i])
+		{
+			tmp = diag[i];
+			splitAxis = i;
+		}
+	}
+	int splitPos = (st + ed) / 2;
+	std::nth_element(&buildNodes[st] , &buildNodes[splitPos] ,
+		&buildNodes[ed] , CompareNode<NodeData>(splitAxis));
+
+	nodes[nodeNum].init(buildNodes[splitPos]->pos[splitAxis] , splitAxis);
+	nodeData[nodeNum] = *buildNodes[splitPos];
+
+	if (st < splitPos)
+	{
+		nodes[nodeNum].hasLeftChild = 1;
+		uint32_t childNum = nextFreeNode++;
+		buildTree(childNum , st , splitPos , buildNodes);
+	}
+	if (splitPos + 1 < ed)
+	{
+		nodes[nodeNum].rightChild = nextFreeNode++;
+		buildTree(nodes[nodeNum].rightChild , splitPos + 1 , ed , buildNodes);
+	}
+}
+
+template<typename NodeData> 
+template<typename Query>
+void KdTree<NodeData>::searchInRadius(uint32_t nodeNum , const Vector3& pos ,
+	Real radius , Query& query)
+{
+	KdNode *node = &nodes[nodeNum];
+
+	int axis = node->splitAxis;
+
+	Real delta = std::abs(pos[axis] - node->splitPos);
+
+	if (axis != -1)
+	{
+		if (pos[axis] <= node->splitPos)
+		{
+			if (node->hasLeftChild)
+				searchInRadius(nodeNum + 1 , pos , radius , query);
+			if (delta < radius && node->rightChild < totNodes)
+				searchInRadius(node->rightChild , pos , radius , query);
+		}
+		else
+		{
+			if (node->rightChild < totNodes)
+				searchInRadius(node->rightChild , pos , radius , query);
+			if (delta < radius && node->hasLeftChild)
+				searchInRadius(nodeNum + 1 , pos , radius , query);
+		}
+	}
+
+	Vector3 d = pos - nodeData[nodeNum].pos;
+	Real dis = d.length();
+	if (dis < radius)
+		query.process(nodeData[nodeNum]);
+}
+
+template<typename NodeData>
+template<typename Query>
+void KdTree<NodeData>::searchKnn(uint32_t nodeNum , const Vector3& pos ,
+	Query& query)
+{
+	KdNode *node = &nodes[nodeNum];
+
+	int axis = node->splitAxis;
+
+	Real delta2 = SQR(pos[axis] - node->splitPos);
+
+	if (axis != -1)
+	{
+		if (pos[axis] <= node->splitPos)
+		{
+			if (node->hasLeftChild)
+				searchKnn(nodeNum + 1 , pos , query);
+			if (delta2 < query.maxSqrDis && node->rightChild < totNodes)
+				searchKnn(node->rightChild , pos , query);
+		}
+		else
+		{
+			if (node->rightChild < totNodes)
+				searchKnn(node->rightChild , pos , query);
+			if (delta2 < query.maxSqrDis && node->hasLeftChild)
+				searchKnn(nodeNum + 1 , pos , query);
+		}
+	}
+
+	Vector3 d = pos - nodeData[nodeNum].pos;
+	Real dist2 = d.sqrLength();
+	if (dist2 < query.maxSqrDis)
+		query.process(&nodeData[nodeNum] , dist2);
+}
 
 #endif
