@@ -108,3 +108,15 @@ void VertexKDtree::buildTree(VertexKDtreeNode *tr , int dep)
 	buildTree(left , dep + 1);
 	buildTree(right , dep + 1);
 }
+
+void VertexKDtree::destroy(VertexKDtreeNode *tr)
+{
+	if (tr->axis == -1)
+	{
+		delete tr;
+		return;
+	}
+	destroy(tr->left);
+	destroy(tr->right);
+	delete tr;
+}

@@ -16,6 +16,8 @@ void VertexCM::init(char *filename , Parameters& para)
 	height = para.HEIGHT; width = para.WIDTH;
 
 	film = new ImageFilm(height , width);
+
+	tree = NULL;
 }
 
 void VertexCM::render()
@@ -30,11 +32,11 @@ void VertexCM::outputImage(char *filename)
 {
 	for (int i = 0; i < height; i++)
 	{
-		for (int j = 0; j < width; j++)
+		for (int j = 0; j < i; j++)
 		{
 			Color3 tmp = film->color[i][j];
-			fprintf(fp , "c(%d,%d)=(%.3f,%.3f,%.3f)\n" , i , j ,
-				tmp.r , tmp.g , tmp.b);
+			film->color[i][j] = film->color[j][i];
+			film->color[j][i] = tmp;
 		}
 	}
 	film->outputImage(filename , 1.f / iterations , 2.2);
@@ -134,8 +136,9 @@ void VertexCM::runIteration(int iter)
 	////////////////////////////////////////////////////////////
 	// build vertex kd-tree
 	////////////////////////////////////////////////////////////
-	tree.init(lightVertices);
-	tree.buildTree(tree.root , 0);
+	tree = new VertexKDtree();
+	tree->init(lightVertices);
+	tree->buildTree(tree->root , 0);
 
 	////////////////////////////////////////////////////////////
 	// generate camera paths
@@ -239,7 +242,7 @@ void VertexCM::runIteration(int iter)
 			{
 				RangeQuery query(*this , hitPos , bsdf , cameraState);
 				std::vector<PathVertex> mergeLightVertices;
-				tree.searchVertexInRadius(tree.root ,
+				tree->searchVertexInRadius(tree->root ,
 					hitPos , radius , query);
 
 				color = color + (cameraState.throughput | query.contrib) *
@@ -252,6 +255,7 @@ void VertexCM::runIteration(int iter)
 
 		film->addColor((int)screenSample.x , (int)screenSample.y , color);
 	}
+	//tree->destroy(tree->root);
 }
 
 void VertexCM::generateLightSample(SubPathState& lightState)

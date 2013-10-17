@@ -55,6 +55,8 @@ public:
 
 	void buildTree(VertexKDtreeNode *tr , int dep);
 
+	void destroy(VertexKDtreeNode *tr);
+
 	template<typename tQuery>
 	void searchVertexInRadius(VertexKDtreeNode *tr , const Vector3& pos ,
 		Real radius , tQuery& query)
@@ -85,14 +87,13 @@ public:
 		Vector3 d = pos - tr->vertices[0].hitPos;
 		Real dis = d.length();
 
-		if (cmp(dis - radius) < 0)
+		if (dis < radius)
 		{
 			query.process(tr->vertices[0]);
 		}
-		if (cmp(delta - radius) < 0)
+		if (std::abs(delta) < radius)
 			searchVertexInRadius(far , pos , radius , query);
 	}
-
 };
 
 static Real get_projection(const Vector3& v , int axis)

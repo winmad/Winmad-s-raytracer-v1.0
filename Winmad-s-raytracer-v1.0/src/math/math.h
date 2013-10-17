@@ -17,7 +17,7 @@ const Real INF = 1e10f;
 
 Real clampVal(Real val , Real minVal , Real maxVal);
 
-int cmp(const Real& x);
+int cmp(const Real x);
 
 Real pdfWtoA(const Real pdfW , const Real dist , const Real cos);
 

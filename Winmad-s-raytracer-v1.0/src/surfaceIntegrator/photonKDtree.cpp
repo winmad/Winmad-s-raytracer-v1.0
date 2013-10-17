@@ -192,7 +192,7 @@ void PhotonKDtree::searchKPhotons(std::vector<ClosePhoton>& kPhotons ,
     Vector3 d = p.p - tr->photons[0].p;
     Real sqrDis = d.sqrLength();
     
-    if (cmp(sqrDis - maxSqrDis) < 0)
+    if (sqrDis < maxSqrDis)
     {
         if (kPhotons.size() < K)
         {
@@ -211,6 +211,6 @@ void PhotonKDtree::searchKPhotons(std::vector<ClosePhoton>& kPhotons ,
             maxSqrDis = kPhotons[0].sqrDis;
         }
     }
-    if (cmp(sqrDelta - maxSqrDis) < 0)
+    if (sqrDelta < maxSqrDis)
         searchKPhotons(kPhotons , far , p , K , maxSqrDis);
 }

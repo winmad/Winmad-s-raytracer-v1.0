@@ -80,7 +80,7 @@ public:
 	std::vector<PathVertex> lightVertices;
 	std::vector<int> pathEnds;
 
-	VertexKDtree tree;
+	VertexKDtree *tree;
 
 	VertexCM() {}
 
