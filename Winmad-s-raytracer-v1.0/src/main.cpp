@@ -5,6 +5,7 @@
 #include "surfaceIntegrator/pathIntegrator.h"
 #include "surfaceIntegrator/photonMap.h"
 #include "surfaceIntegrator/vertexcm.h"
+#include "surfaceIntegrator/pathReusing.h"
 #include <opencv2/opencv.hpp>
 #include "tinyxml/tinyxml.h"
 
@@ -14,6 +15,7 @@ WhittedIntegrator whitted;
 PathIntegrator pathIntegrator;
 PhotonIntegrator photonIntegrator;
 VertexCM vertexcmIntegrator;
+PathReusing pathReusing;
 
 int main(int argc , char* argv[])
 {
@@ -42,6 +44,12 @@ int main(int argc , char* argv[])
 		vertexcmIntegrator.init(argv[1] , para);
 		vertexcmIntegrator.render();
 		vertexcmIntegrator.outputImage(argv[2]);
+	}
+	else if (!strcmp(argv[3] , "-pr"))
+	{
+		pathReusing.init(argv[1] , para);
+		pathReusing.render();
+		pathReusing.outputImage(argv[2]);
 	}
 	/*
 	else if (!strcmp(argv[3] , "-igi"))
