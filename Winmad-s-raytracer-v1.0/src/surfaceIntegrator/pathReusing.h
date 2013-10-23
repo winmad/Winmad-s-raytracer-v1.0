@@ -16,19 +16,90 @@ struct PathState
 	int isFiniteLight : 1;
 };
 
+class SubPath
+{
+public:
+	Vector3 pos; // origin
+	Vector3 nextPos; // origin -> nextPos
+	Color3 throughput;
+	Color3 contrib;
+	Real pdf;
+
+	BSDF bsdf; // bsdf at nextPos
+	int rasterX , rasterY;
+
+	SubPath() : rasterX(-1) , rasterY(-1) {}
+
+	SubPath(PathState& oldPathState , PathState& curPathState)
+	{
+		pos = oldPathState.origin;
+
+		throughput.r = curPathState.throughput.r / oldPathState.throughput.r;
+		throughput.g = curPathState.throughput.g / oldPathState.throughput.g;
+		throughput.b = curPathState.throughput.b / oldPathState.throughput.b;
+		pdf = curPathState.pdf / oldPathState.pdf;
+
+		contrib = Color3(0.f);
+	}
+
+	bool isStart()
+	{
+		return (rasterX != -1);
+	}
+};
+
 class PathReusing : public SurfaceIntegrator
 {
 public:
+	class RangeQuery
+	{
+	public:
+		PathReusing& pathReusing;
+		Vector3& cameraPos;
+		BSDF& cameraBsdf;
+		SubPath& cameraSubPath;
+		Color3 contrib;
+
+		RangeQuery(PathReusing& pathReusing , 
+			Vector3& cameraPos , BSDF& cameraBsdf ,
+			SubPath& cameraSubPath)
+			: pathReusing(pathReusing) , cameraPos(cameraPos) ,
+			cameraBsdf(cameraBsdf) , cameraSubPath(cameraSubPath) ,
+			contrib(0) {}
+
+		void process(PathState& lightVertex)
+		{
+			Vector3 lightDir = lightVertex.bsdf.wiWorld();
+
+			Real cosCamera , cameraBsdfDirPdf , cameraBsdfRevPdf;
+
+			Color3 cameraBsdfFactor = cameraBsdf.f(pathReusing.scene , 
+				lightDir , cosCamera , &cameraBsdfDirPdf , &cameraBsdfRevPdf);
+
+			if (cameraBsdfFactor.isBlack())
+				return;
+
+			cameraBsdfDirPdf *= cameraBsdf.continueProb;
+			cameraBsdfRevPdf *= lightVertex.bsdf.continueProb;
+
+			contrib = contrib + (cameraBsdfFactor | lightVertex.throughput);
+		}
+	};
+
 	int minPathLength , maxPathLength;
 	int lightPathNum , cameraPathNum;
 	int iterations;
+	Real baseRadius;         // initial merging radius
+	Real radiusAlpha;        // radius reduction per iteration
 
 	std::vector<PathState> lightStates;
-	std::vector<PathState> cameraStates;
+	std::vector<SubPath> cameraSubPaths;
 
 	std::vector<int> lightStateIndex;
-	std::vector<int> cameraStateIndex;
 
+	KdTree<PathState> *lightTree;
+	KdTree<SubPath> *pathTree;
+	
 	PathReusing() {}
 
 	void init(char *filename , Parameters& para);
@@ -40,6 +111,9 @@ public:
 	void outputImage(char *filename);
 
 	void generateLightSample(PathState& lightState);
+
+	Color3 connectToCamera(PathState& lightState , const Vector3& hitPos ,
+		BSDF& bsdf);
 
 	bool sampleScattering(BSDF& bsdf , const Vector3& hitPos , 
 		PathState& pathState);

@@ -6,7 +6,7 @@ void PathReusing::init(char *filename , Parameters& para)
 {
 	minPathLength = 0;
 	maxPathLength = 10;
-	iterations = 25;
+	iterations = 20;
 
 	samplesPerPixel = para.SAMPLES_PER_PIXEL;
 
@@ -46,11 +46,19 @@ void PathReusing::runIteration(int iter)
 	lightPathNum = height * width;
 	cameraPathNum = lightPathNum;
 
+	Real radius = baseRadius;
+	radius /= std::pow((Real)(iter + 1) , 0.5f * (1.f - radiusAlpha));
+	radius = std::max(radius , EPS);
+	Real radiusSqr = SQR(radius);
+
 	lightStateIndex.resize(lightPathNum);
 	memset(&lightStateIndex[0] , 0 , lightStateIndex.size() * sizeof(int));
 
 	lightStates.reserve(lightPathNum);
 	lightStates.clear();
+
+	cameraSubPaths.reserve(cameraPathNum);
+	cameraSubPaths.clear();
 
 	// generating light paths
 	for (int pathIndex = 0; pathIndex < lightPathNum; pathIndex++)
@@ -76,7 +84,22 @@ void PathReusing::runIteration(int iter)
 			lightState.bsdf = bsdf;
 			lightState.pdf *= std::abs(bsdf.cosWi()) / SQR(inter.t);
 
-			lightStates.push_back(lightState);
+			if (!bsdf.isDelta)
+				lightStates.push_back(lightState);
+
+			// connect to camera
+			if (!bsdf.isDelta)
+			{
+				if (lightState.pathLength + 1 >= minPathLength)
+				{
+					Vector3 imagePos = scene.camera.worldToRaster.tPoint(hitPos);
+					if (scene.camera.checkRaster(imagePos.x , imagePos.y))
+					{
+						Color3 res = connectToCamera(lightState , hitPos , bsdf);
+						film->addColor((int)imagePos.x , (int)imagePos.y , res);
+					}
+				}
+			}
 
 			if (lightState.pathLength + 2 > maxPathLength)
 				break;
@@ -91,8 +114,13 @@ void PathReusing::runIteration(int iter)
 	// generating camera paths
 	for (int pathIndex = 0; pathIndex < cameraPathNum; pathIndex++)
 	{
-		PathState cameraState;
+		PathState cameraState , oldCameraState;
 		Vector3 screenSample = generateCameraSample(pathIndex , cameraState);
+
+		oldCameraState = cameraState;
+		oldCameraState.pdf = 1;
+		oldCameraState.throughput = Color3(1.f);
+
 		Color3 color(0);
 
 		for (;; cameraState.pathLength++)
@@ -140,6 +168,34 @@ void PathReusing::runIteration(int iter)
 			if (cameraState.pathLength >= maxPathLength)
 				break;
 
+			// store path state
+			if (!bsdf.isDelta)
+			{
+				/*
+				SubPath subPath(oldCameraState , cameraState);
+				subPath.nextPos = inter.p;
+				subPath.bsdf = BSDF(-ray.dir , inter , scene);
+				if (cameraState.pathLength == 1)
+				{
+					subPath.rasterX = (int)screenSample.x;
+					subPath.rasterY = (int)screenSample.y;
+				}
+
+				cameraSubPaths.push_back(subPath);
+				
+				oldCameraState = cameraState;
+				*/
+				SubPath subPath;
+				subPath.pos = cameraState.origin;
+				subPath.nextPos = inter.p;
+				subPath.throughput = cameraState.throughput;
+				subPath.pdf = cameraState.pdf;
+				subPath.bsdf = bsdf;
+				subPath.rasterX = (int)screenSample.x;
+				subPath.rasterY = (int)screenSample.y;
+				cameraSubPaths.push_back(subPath);
+			}
+
 			// vertex connection: connect to light source
 			if (!bsdf.isDelta)
 			{
@@ -186,6 +242,28 @@ void PathReusing::runIteration(int iter)
 
 		film->addColor((int)screenSample.x , (int)screenSample.y , color);
 	}
+
+	// merge
+	lightTree = new KdTree<PathState>(lightStates);
+
+	Real kernel = 1.f / (PI * radiusSqr * lightStates.size());
+
+	for (int i = 0; i < cameraSubPaths.size(); i++)
+	{
+		RangeQuery query(*this , cameraSubPaths[i].nextPos , 
+			cameraSubPaths[i].bsdf , cameraSubPaths[i]);
+		
+		lightTree->searchInRadius(0 , cameraSubPaths[i].nextPos , 
+			radius , query);
+
+		Color3 color = (cameraSubPaths[i].throughput | query.contrib) *
+			kernel;
+
+		film->addColor(cameraSubPaths[i].rasterX , cameraSubPaths[i].rasterY ,
+			color);
+	}
+
+	delete lightTree;
 }
 
 void PathReusing::generateLightSample(PathState& lightState)
@@ -211,9 +289,55 @@ void PathReusing::generateLightSample(PathState& lightState)
 
 	lightState.pdf = emissionPdf;
 
-	Real misTotal = mis(emissionPdf) + mis(directPdf);
-	Real misWeight = std::max(mis(emissionPdf) , mis(directPdf)) / misTotal;
-	lightState.throughput = lightState.throughput * misWeight;
+	lightState.throughput = lightState.throughput;
+}
+
+Color3 PathReusing::connectToCamera(PathState& lightState , 
+	const Vector3& hitPos , BSDF& bsdf)
+{
+	Color3 res(0);
+
+	Camera& camera = scene.camera;
+	Vector3 dirToCamera = camera.pos - hitPos;
+
+	if (cmp(-dirToCamera ^ camera.forward) <= 0)
+		return res;
+
+	Real distEye2 = dirToCamera.sqrLength();
+	Real dist = std::sqrt(distEye2);
+	dirToCamera = dirToCamera / dist;
+
+	Real cosToCamera , bsdfDirPdf , bsdfRevPdf;
+	Color3 bsdfFactor = bsdf.f(scene , dirToCamera , cosToCamera ,
+		&bsdfDirPdf , &bsdfRevPdf);
+
+	if (bsdfFactor.isBlack())
+		return res;
+
+	bsdfRevPdf *= bsdf.continueProb;
+
+	Real cosAtCamera = (-dirToCamera) ^ camera.forward;
+	Real imagePointToCameraDist = camera.imagePlaneDist / cosAtCamera;
+	Real imageToSolidAngleFactor = SQR(imagePointToCameraDist) / cosAtCamera;
+	Real imageToSurfaceFactor = imageToSolidAngleFactor * std::abs(cosAtCamera) / distEye2;
+
+	Real cameraPdfArea = imageToSurfaceFactor /* * 1.f */; // pixel area is 1
+
+	Real surfaceToImageFactor = 1.f / imageToSurfaceFactor;
+
+	//res = (lightState.throughput | bsdfFactor) /
+	//	(cameraPathNum * surfaceToImageFactor);
+
+	res = (lightState.throughput | bsdfFactor) /
+		(cameraPdfArea * cameraPathNum);
+
+	if (res.isBlack())
+		return res;
+
+	if (scene.occluded(hitPos , dirToCamera , camera.pos))
+		return Color3(0);
+
+	return res;
 }
 
 bool PathReusing::sampleScattering(BSDF& bsdf , 
@@ -315,9 +439,7 @@ Color3 PathReusing::getLightRadiance(AbstractLight *light ,
 	
 	Real pdf = directPdfArea;
 
-	Real misTotal = mis(directPdfArea) + mis(emissionPdf);
-	Real misWeight = mis(directPdfArea) / misTotal;
-	return radiance / pdf * misWeight;
+	return radiance / pdf;
 }
 
 Color3 PathReusing::getDirectIllumination(PathState& cameraState , 
@@ -354,11 +476,7 @@ Color3 PathReusing::getDirectIllumination(PathState& cameraState ,
 	bsdfDirPdf *= light->isDelta() ? 0.f : contProb;
 	bsdfRevPdf *= contProb;
 
-	Real misTotal = mis(bsdfDirPdf * directPdf * lightPickProb) +
-		mis(emissionPdf);
-	Real misWeight = mis(bsdfDirPdf * directPdf * lightPickProb) /
-		misTotal;
-	res = (illu | bsdfFactor) / (directPdf * lightPickProb) * misWeight;
+	res = (illu | bsdfFactor) / (directPdf * lightPickProb);
 
 	if (res.isBlack() || scene.occluded(hitPos , dirToLight ,
 		hitPos + dirToLight * dist))
@@ -407,9 +525,7 @@ Color3 PathReusing::connectVertices(PathState& lightState ,
 	Real cameraBsdfDirPdfArea = pdfWtoA(cameraBsdfDirPdf , dist , cosAtLight);
 	Real lightBsdfDirPdfArea = pdfWtoA(lightBsdfDirPdf , dist , cosAtCamera);
 
-	Real misTotal = mis(cameraBsdfDirPdfArea) + mis(lightBsdfDirPdfArea);
-	Real misWeight = mis(cameraBsdfDirPdfArea) / misTotal;
-	res = (cameraBsdfFactor | lightBsdfFactor) * geometryTerm * misWeight;
+	res = (cameraBsdfFactor | lightBsdfFactor) * geometryTerm;
 
 	if (res.isBlack() || scene.occluded(hitPos , dir , 
 		hitPos + dir * dist))

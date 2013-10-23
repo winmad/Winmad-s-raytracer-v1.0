@@ -239,7 +239,6 @@ void VertexCM::runIteration(int iter)
 			if (!bsdf.isDelta)
 			{
 				RangeQuery query(*this , hitPos , bsdf , cameraState);
-				std::vector<PathVertex> mergeLightVertices;
 
 				tree->searchInRadius(0 , hitPos , radius , query);
 
