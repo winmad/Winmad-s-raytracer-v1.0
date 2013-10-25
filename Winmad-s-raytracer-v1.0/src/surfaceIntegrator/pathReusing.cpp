@@ -10,6 +10,9 @@ void PathReusing::init(char *filename , Parameters& para)
 
 	samplesPerPixel = para.SAMPLES_PER_PIXEL;
 
+	baseRadius = 0.003f * scene.sceneSphere.sceneRadius;
+	radiusAlpha = 0.75f;
+
 	scene.init(filename , para);
 
 	height = para.HEIGHT; width = para.WIDTH;
@@ -96,7 +99,7 @@ void PathReusing::runIteration(int iter)
 					if (scene.camera.checkRaster(imagePos.x , imagePos.y))
 					{
 						Color3 res = connectToCamera(lightState , hitPos , bsdf);
-						film->addColor((int)imagePos.x , (int)imagePos.y , res);
+						//film->addColor((int)imagePos.x , (int)imagePos.y , res);
 					}
 				}
 			}
@@ -174,6 +177,7 @@ void PathReusing::runIteration(int iter)
 			// store path state
 			if (!bsdf.isDelta)
 			{
+				
 				SubPath subPath(oldCameraState , cameraState);
 				subPath.nextPos = inter.p;
 				subPath.bsdf = BSDF(-ray.dir , inter , scene);
@@ -189,18 +193,18 @@ void PathReusing::runIteration(int iter)
 				oldCameraState = cameraState;
 				
 				isNewSubPath = 1;
-
-				/*
-				SubPath subPath;
-				subPath.pos = cameraState.origin;
-				subPath.nextPos = inter.p;
-				subPath.throughput = cameraState.throughput;
-				subPath.pdf = cameraState.pdf;
-				subPath.bsdf = bsdf;
-				subPath.rasterX = (int)screenSample.x;
-				subPath.rasterY = (int)screenSample.y;
-				cameraSubPaths.push_back(subPath);
-				*/
+				
+				
+// 				SubPath subPath;
+// 				subPath.pos = cameraState.origin;
+// 				subPath.nextPos = inter.p;
+// 				subPath.throughput = cameraState.throughput;
+// 				subPath.pdf = cameraState.pdf;
+// 				subPath.bsdf = bsdf;
+// 				subPath.rasterX = (int)screenSample.x;
+// 				subPath.rasterY = (int)screenSample.y;
+// 				cameraSubPaths.push_back(subPath);
+				
 			}
 
 			// vertex connection: connect to light source
@@ -274,6 +278,12 @@ void PathReusing::runIteration(int iter)
 
 		cameraSubPaths[i].contrib = cameraSubPaths[i].contrib +
 			color;
+
+// 		if (cameraSubPaths[i].isStart())
+// 		{
+// 			film->addColor(cameraSubPaths[i].rasterX , 
+// 				cameraSubPaths[i].rasterY , cameraSubPaths[i].contrib);
+// 		}
 	}
 
 	delete lightTree;
