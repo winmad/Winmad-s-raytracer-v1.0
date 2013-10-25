@@ -6,7 +6,7 @@ void PathReusing::init(char *filename , Parameters& para)
 {
 	minPathLength = 0;
 	maxPathLength = 10;
-	iterations = 20;
+	iterations = 1;
 
 	samplesPerPixel = para.SAMPLES_PER_PIXEL;
 
@@ -123,6 +123,9 @@ void PathReusing::runIteration(int iter)
 
 		Color3 color(0);
 
+		Vector3 dirAtOrigin;
+		bool isNewSubPath = 1;
+
 		for (;; cameraState.pathLength++)
 		{
 			Ray ray(cameraState.origin + cameraState.dir * EPS ,
@@ -171,10 +174,10 @@ void PathReusing::runIteration(int iter)
 			// store path state
 			if (!bsdf.isDelta)
 			{
-				/*
 				SubPath subPath(oldCameraState , cameraState);
 				subPath.nextPos = inter.p;
 				subPath.bsdf = BSDF(-ray.dir , inter , scene);
+				subPath.wo = dirAtOrigin;
 				if (cameraState.pathLength == 1)
 				{
 					subPath.rasterX = (int)screenSample.x;
@@ -184,7 +187,10 @@ void PathReusing::runIteration(int iter)
 				cameraSubPaths.push_back(subPath);
 				
 				oldCameraState = cameraState;
-				*/
+				
+				isNewSubPath = 1;
+
+				/*
 				SubPath subPath;
 				subPath.pos = cameraState.origin;
 				subPath.nextPos = inter.p;
@@ -194,6 +200,7 @@ void PathReusing::runIteration(int iter)
 				subPath.rasterX = (int)screenSample.x;
 				subPath.rasterY = (int)screenSample.y;
 				cameraSubPaths.push_back(subPath);
+				*/
 			}
 
 			// vertex connection: connect to light source
@@ -238,9 +245,15 @@ void PathReusing::runIteration(int iter)
 
 			if (!sampleScattering(bsdf , hitPos , cameraState))
 				break;
+
+			if (isNewSubPath)
+			{
+				isNewSubPath = 0;
+				dirAtOrigin = cameraState.dir;
+			}
 		}
 
-		film->addColor((int)screenSample.x , (int)screenSample.y , color);
+		//film->addColor((int)screenSample.x , (int)screenSample.y , color);
 	}
 
 	// merge
@@ -259,11 +272,43 @@ void PathReusing::runIteration(int iter)
 		Color3 color = (cameraSubPaths[i].throughput | query.contrib) *
 			kernel;
 
-		film->addColor(cameraSubPaths[i].rasterX , cameraSubPaths[i].rasterY ,
-			color);
+		cameraSubPaths[i].contrib = cameraSubPaths[i].contrib +
+			color;
 	}
 
 	delete lightTree;
+
+	kernel = 1.f / (PI * radiusSqr * cameraSubPaths.size());
+
+	for (int mergeIter = 0; mergeIter < maxPathLength; mergeIter++)
+	{
+		pathTree = new KdTree<SubPath>(cameraSubPaths);
+
+		for (int i = 0; i < cameraSubPaths.size(); i++)
+		{
+			MergeQuery query(*this , cameraSubPaths[i].nextPos ,
+				cameraSubPaths[i]);
+
+			pathTree->searchInRadius(0 , query.pathEnd , radius , query);
+
+			Color3 color = (cameraSubPaths[i].throughput | query.contrib) *
+				kernel;
+
+			cameraSubPaths[i].contrib = cameraSubPaths[i].contrib +
+				color;
+		}
+		
+		delete pathTree;
+	}
+
+	for (int i = 0; i < cameraSubPaths.size(); i++)
+	{
+		if (cameraSubPaths[i].isStart())
+		{
+			film->addColor(cameraSubPaths[i].rasterX , 
+				cameraSubPaths[i].rasterY , cameraSubPaths[i].contrib);
+		}
+	}
 }
 
 void PathReusing::generateLightSample(PathState& lightState)

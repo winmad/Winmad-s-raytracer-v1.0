@@ -25,6 +25,7 @@ public:
 	Color3 contrib;
 	Real pdf;
 
+	Vector3 wo; // dir at origin
 	BSDF bsdf; // bsdf at nextPos
 	int rasterX , rasterY;
 
@@ -83,6 +84,38 @@ public:
 			cameraBsdfRevPdf *= lightVertex.bsdf.continueProb;
 
 			contrib = contrib + (cameraBsdfFactor | lightVertex.throughput);
+		}
+	};
+
+	class MergeQuery
+	{
+	public:
+		PathReusing& pathReusing;
+		Vector3& pathEnd;
+		SubPath& cameraSubPath;
+		Color3 contrib;
+
+		MergeQuery(PathReusing& pathReusing , Vector3& pathEnd ,
+			SubPath& cameraSubPath)
+			: pathReusing(pathReusing) , pathEnd(pathEnd) ,
+			cameraSubPath(cameraSubPath) , contrib(0) {}
+
+		void process(SubPath& subPath)
+		{
+			if (subPath.contrib.isBlack())
+				return;
+
+			Real cosTerm , bsdfDirPdf , bsdfRevPdf;
+			Color3 bsdfFactor = cameraSubPath.bsdf.f(pathReusing.scene ,
+				subPath.wo , cosTerm , &bsdfDirPdf , &bsdfRevPdf);
+
+			if (bsdfFactor.isBlack())
+				return;
+
+			bsdfDirPdf *= cameraSubPath.bsdf.continueProb;
+			bsdfRevPdf *= cameraSubPath.bsdf.continueProb;
+
+			contrib = contrib + (bsdfFactor | subPath.contrib);
 		}
 	};
 
