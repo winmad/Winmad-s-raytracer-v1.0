@@ -60,13 +60,14 @@ public:
 		BSDF& cameraBsdf;
 		SubPath& cameraSubPath;
 		Color3 contrib;
+		int mergeNum;
 
 		RangeQuery(PathReusing& pathReusing , 
 			Vector3& cameraPos , BSDF& cameraBsdf ,
 			SubPath& cameraSubPath)
 			: pathReusing(pathReusing) , cameraPos(cameraPos) ,
 			cameraBsdf(cameraBsdf) , cameraSubPath(cameraSubPath) ,
-			contrib(0) {}
+			contrib(0) , mergeNum(0) {}
 
 		void process(PathState& lightVertex)
 		{
@@ -79,6 +80,8 @@ public:
 
 			if (cameraBsdfFactor.isBlack())
 				return;
+
+			mergeNum++;
 
 			cameraBsdfDirPdf *= cameraBsdf.continueProb;
 			cameraBsdfRevPdf *= lightVertex.bsdf.continueProb;
@@ -94,16 +97,20 @@ public:
 		Vector3& pathEnd;
 		SubPath& cameraSubPath;
 		Color3 contrib;
+		int mergeNum;
 
 		MergeQuery(PathReusing& pathReusing , Vector3& pathEnd ,
 			SubPath& cameraSubPath)
 			: pathReusing(pathReusing) , pathEnd(pathEnd) ,
-			cameraSubPath(cameraSubPath) , contrib(0) {}
+			cameraSubPath(cameraSubPath) , contrib(0) ,
+			mergeNum(0) {}
 
 		void process(SubPath& subPath)
 		{
 			if (subPath.contrib.isBlack())
 				return;
+
+			mergeNum++;
 
 			Real cosTerm , bsdfDirPdf , bsdfRevPdf;
 			Color3 bsdfFactor = cameraSubPath.bsdf.f(pathReusing.scene ,
@@ -126,7 +133,7 @@ public:
 	Real radiusAlpha;        // radius reduction per iteration
 
 	std::vector<PathState> lightStates;
-	std::vector<SubPath> cameraSubPaths;
+	std::vector<SubPath> cameraSubPaths[2];
 
 	std::vector<int> lightStateIndex;
 
