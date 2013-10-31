@@ -41,13 +41,14 @@ public:
 		BSDF& cameraBsdf;
 		SubPathState& cameraState;
 		Color3 contrib;
+		int mergeNum;
 
 		RangeQuery(VertexCM& vertexCM , 
 			Vector3& cameraPos , BSDF& cameraBsdf ,
 			SubPathState& cameraState)
 			: vertexCM(vertexCM) , cameraPos(cameraPos) ,
 			cameraBsdf(cameraBsdf) , cameraState(cameraState) ,
-			contrib(0) {}
+			contrib(0) , mergeNum(0) {}
 
 		void process(PathVertex& lightVertex)
 		{
@@ -64,6 +65,8 @@ public:
 
 			if (cameraBsdfFactor.isBlack())
 				return;
+
+			mergeNum++;
 
 			cameraBsdfDirPdf *= cameraBsdf.continueProb;
 			cameraBsdfRevPdf *= lightVertex.bsdf.continueProb;

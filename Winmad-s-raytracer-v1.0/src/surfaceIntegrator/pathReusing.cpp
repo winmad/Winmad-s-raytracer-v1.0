@@ -6,7 +6,7 @@ void PathReusing::init(char *filename , Parameters& para)
 {
 	minPathLength = 0;
 	maxPathLength = 10;
-	iterations = 30;
+	iterations = 10;
 
 	samplesPerPixel = para.SAMPLES_PER_PIXEL;
 
@@ -41,13 +41,13 @@ void PathReusing::outputImage(char *filename)
 				tmp.r , tmp.g , tmp.b);
 		}
 	}
-	film->outputImage(filename , 1.f / iterations , 2.2);
+	film->outputImage(filename , 1.f / 3.f / iterations , 2.2);
 }
 
 void PathReusing::runIteration(int iter)
 {
 	lightPathNum = height * width;
-	cameraPathNum = lightPathNum;
+	cameraPathNum = lightPathNum * 3;
 
 	Real radius = baseRadius;
 	radius /= std::pow((Real)(iter + 1) , 0.5f * (1.f - radiusAlpha));
@@ -60,10 +60,8 @@ void PathReusing::runIteration(int iter)
 	lightStates.reserve(lightPathNum);
 	lightStates.clear();
 
-	cameraSubPaths[0].reserve(cameraPathNum);
-	cameraSubPaths[0].clear();
-	cameraSubPaths[1].reserve(cameraPathNum);
-	cameraSubPaths[1].clear();
+	//cameraSubPaths.reserve(cameraPathNum);
+	cameraSubPaths.clear();
 
 	// generating light paths
 	for (int pathIndex = 0; pathIndex < lightPathNum; pathIndex++)
@@ -117,8 +115,10 @@ void PathReusing::runIteration(int iter)
 	}
 
 	// generating camera paths
-	for (int pathIndex = 0; pathIndex < cameraPathNum; pathIndex++)
+	for (int index = 0; index < cameraPathNum; index++)
 	{
+		int pathIndex = index % (height * width);
+
 		PathState cameraState , oldCameraState;
 		Vector3 screenSample = generateCameraSample(pathIndex , cameraState);
 
@@ -177,11 +177,6 @@ void PathReusing::runIteration(int iter)
 			if (cameraState.pathLength >= maxPathLength)
 				break;
 
-			if (cameraState.pathLength == 1 && bsdf.isDelta)
-			{
-				int a = 0;
-			}
-
 			// store path state
 			if (!bsdf.isDelta)
 			{
@@ -196,8 +191,7 @@ void PathReusing::runIteration(int iter)
 					subPath.rasterY = (int)screenSample.y;
 				}
 
-				cameraSubPaths[0].push_back(subPath);
-				cameraSubPaths[1].push_back(subPath);
+				cameraSubPaths.push_back(subPath);
 				
 				oldCameraState = cameraState;
 				oldCameraState.origin = inter.p;
@@ -275,64 +269,68 @@ void PathReusing::runIteration(int iter)
 
 	Real kernel = 1.f / (PI * radiusSqr * lightStates.size());
 
-	for (int i = 0; i < cameraSubPaths[0].size(); i++)
+	for (int i = 0; i < cameraSubPaths.size(); i++)
 	{
-		RangeQuery query(*this , cameraSubPaths[0][i].nextPos , 
-			cameraSubPaths[0][i].bsdf , cameraSubPaths[0][i]);
+		RangeQuery query(*this , cameraSubPaths[i].nextPos , 
+			cameraSubPaths[i].bsdf , cameraSubPaths[i]);
 		
-		lightTree->searchInRadius(0 , cameraSubPaths[0][i].nextPos , 
+		lightTree->searchInRadius(0 , cameraSubPaths[i].nextPos , 
 			radius , query);
 
 		//fprintf(fp , "%d\n" , query.mergeNum);
 
-		Color3 color = (cameraSubPaths[0][i].throughput | query.contrib) *
+		Color3 color = (cameraSubPaths[i].throughput | query.contrib) *
 			kernel;
 
-		cameraSubPaths[0][i].contrib = cameraSubPaths[0][i].contrib +
+		cameraSubPaths[i].contrib = cameraSubPaths[i].contrib +
 			color;
 
-// 		if (cameraSubPaths[0][i].isStart())
+// 		if (cameraSubPaths[i].isStart())
 // 		{
-// 			film->addColor(cameraSubPaths[0][i].rasterX , 
-// 				cameraSubPaths[0][i].rasterY , cameraSubPaths[0][i].contrib);
+// 			film->addColor(cameraSubPaths[i].rasterX , 
+// 				cameraSubPaths[i].rasterY , cameraSubPaths[i].contrib);
 // 		}
 	}
 
 	delete lightTree;
 
-	kernel = 1.f / (PI * radiusSqr * cameraSubPaths[0].size());
+	kernel = 1.f / (PI * radiusSqr * cameraSubPaths.size());
 
-	int now = 0;
+	std::vector<Color3> contribs;
+	contribs.resize(cameraSubPaths.size());
+
 	for (int mergeIter = 0; mergeIter < maxPathLength; mergeIter++)
 	{
-		now ^= 1;
-		pathTree = new KdTree<SubPath>(cameraSubPaths[now ^ 1]);
+		pathTree = new KdTree<SubPath>(cameraSubPaths);
 
-		for (int i = 0; i < cameraSubPaths[now].size(); i++)
+		for (int i = 0; i < cameraSubPaths.size(); i++)
 		{
-			MergeQuery query(*this , cameraSubPaths[now][i].nextPos ,
-				cameraSubPaths[now][i]);
+			MergeQuery query(*this , cameraSubPaths[i].nextPos ,
+				cameraSubPaths[i]);
 
 			pathTree->searchInRadius(0 , query.pathEnd , radius , query);
 
 			//fprintf(fp , "%d\n" , query.mergeNum);
 
-			Color3 color = (cameraSubPaths[now][i].throughput | query.contrib) *
+			Color3 color = (cameraSubPaths[i].throughput | query.contrib) *
 				kernel;
 
-			cameraSubPaths[now][i].contrib = cameraSubPaths[now][i].contrib +
+			contribs[i] =  cameraSubPaths[i].contrib +
 				color;
 		}
+
+		for (int i = 0; i < cameraSubPaths.size(); i++)
+			cameraSubPaths[i].contrib = contribs[i];
 		
 		delete pathTree;
 	}
 
-	for (int i = 0; i < cameraSubPaths[now].size(); i++)
+	for (int i = 0; i < cameraSubPaths.size(); i++)
 	{
-		if (cameraSubPaths[now][i].isStart())
+		if (cameraSubPaths[i].isStart())
 		{
-			film->addColor(cameraSubPaths[now][i].rasterX , 
-				cameraSubPaths[now][i].rasterY , cameraSubPaths[now][i].contrib);
+			film->addColor(cameraSubPaths[i].rasterX , 
+				cameraSubPaths[i].rasterY , cameraSubPaths[i].contrib);
 		}
 	}
 }
@@ -479,7 +477,8 @@ Vector3 PathReusing::generateCameraSample(const int pathIndex ,
 
 	cameraState.pathLength = 1;
 	cameraState.specularPath = 1;
-	cameraState.pdf = cameraPdf / cameraPathNum;
+	//cameraState.pdf = cameraPdf / cameraPathNum;
+	cameraState.pdf = 1;
 
 	cameraState.throughput = Color3(1) / cameraState.pdf;
 	

@@ -133,7 +133,7 @@ public:
 	Real radiusAlpha;        // radius reduction per iteration
 
 	std::vector<PathState> lightStates;
-	std::vector<SubPath> cameraSubPaths[2];
+	std::vector<SubPath> cameraSubPaths;
 
 	std::vector<int> lightStateIndex;
 

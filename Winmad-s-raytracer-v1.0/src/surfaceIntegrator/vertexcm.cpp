@@ -26,7 +26,7 @@ void VertexCM::render()
 		runIteration(iter);
 }
 
-//static FILE *fp = fopen("debug_vcm.txt" , "w");
+static FILE *fp = fopen("debug_vcm.txt" , "w");
 
 void VertexCM::outputImage(char *filename)
 {
@@ -241,6 +241,8 @@ void VertexCM::runIteration(int iter)
 				RangeQuery query(*this , hitPos , bsdf , cameraState);
 
 				tree->searchInRadius(0 , hitPos , radius , query);
+
+				fprintf(fp , "%d\n" , query.mergeNum);
 
 				color = color + (cameraState.throughput | query.contrib) *
 					vmNormalization;
