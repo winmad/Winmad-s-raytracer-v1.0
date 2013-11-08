@@ -26,7 +26,7 @@ void VertexCM::render()
 		runIteration(iter);
 }
 
-static FILE *fp = fopen("debug_vcm.txt" , "w");
+//static FILE *fp = fopen("debug_vcm.txt" , "w");
 
 void VertexCM::outputImage(char *filename)
 {
@@ -242,7 +242,7 @@ void VertexCM::runIteration(int iter)
 
 				tree->searchInRadius(0 , hitPos , radius , query);
 
-				fprintf(fp , "%d\n" , query.mergeNum);
+				//fprintf(fp , "%d\n" , query.mergeNum);
 
 				color = color + (cameraState.throughput | query.contrib) *
 					vmNormalization;
@@ -342,6 +342,7 @@ Color3 VertexCM::connectToCamera(const SubPathState& lightState ,
 	if (scene.occluded(hitPos , dirToCamera , camera.pos))
 		return Color3(0);
 
+	fprintf(fp , "s=%d,t=%d,w=%.4lf\n" , lightState.pathLength , 0 , misWeight);
 	return res;
 }
 
@@ -460,6 +461,8 @@ Color3 VertexCM::getLightRadiance(AbstractLight *light ,
 
 	Real misWeight = 1.f / (1.f + weightCamera);
 
+	fprintf(fp , "s=%d,t=%d,w=%.4lf\n" , 0 , cameraState.pathLength , misWeight);
+
 	return radiance * misWeight;
 }
 
@@ -512,6 +515,8 @@ Color3 VertexCM::getDirectIllumination(SubPathState& cameraState ,
 	if (res.isBlack() || scene.occluded(hitPos , dirToLight ,
 		hitPos + dirToLight * dist))
 		return Color3(0);
+
+	fprintf(fp , "s=%d,t=%d,w=%.4lf\n" , 1 , cameraState.pathLength , misWeight);
 
 	return res;
 }
@@ -571,6 +576,9 @@ Color3 VertexCM::connectVertices(PathVertex& lightVertex ,
 	if (res.isBlack() || scene.occluded(cameraHitPos , dir , 
 		cameraHitPos + dir * dist))
 		return Color3(0);
+
+	fprintf(fp , "s=%d,t=%d,w=%.4lf\n" , lightVertex.pathLength , 
+		cameraState.pathLength , misWeight);
 
 	return res;
 }

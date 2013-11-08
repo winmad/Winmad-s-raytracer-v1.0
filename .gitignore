@@ -5,10 +5,12 @@
 
 # Scene Files
 *.scene
+*.txt
 
 # Others
 *.zip
 *.sln
+*.vsps
 
 #################
 ## Eclipse

@@ -7,6 +7,8 @@
 #include "../material/bsdf.h"
 #include <vector>
 
+static FILE *fp = fopen("debug_vcm.txt" , "w");
+
 struct PathVertex
 {
 	Vector3 pos;
@@ -78,6 +80,9 @@ public:
 				cameraState.dVM * vertexCM.mis(cameraBsdfRevPdf);
 
 			Real misWeight = 1.f / (weightLight + 1.f + weightCamera);
+
+			fprintf(fp , "vm s=%d,t=%d,w=%.4lf\n" , lightVertex.pathLength , 
+				cameraState.pathLength , misWeight);
 
 			contrib = contrib + (cameraBsdfFactor | lightVertex.throughput) *
 				misWeight;
