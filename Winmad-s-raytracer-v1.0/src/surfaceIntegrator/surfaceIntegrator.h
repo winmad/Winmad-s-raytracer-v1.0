@@ -6,7 +6,10 @@
 #include "../scene/KDtree.h"
 #include "../sampler/sampler.h"
 #include "../math/rng.h"
+#include "../math/color.h"
+#include "../math/vector.h"
 #include "../material/bsdf.h"
+#include <vector>
 
 class SurfaceIntegrator
 {

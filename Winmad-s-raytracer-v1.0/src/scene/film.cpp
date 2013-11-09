@@ -27,6 +27,13 @@ void ImageFilm::gamma(Real _gamma)
 			color[i][j].gamma(_gamma);
 }
 
+void ImageFilm::addBias(Color3 bias)
+{
+	for (int i = 0; i < height; i++)
+		for (int j = 0; j < width; j++)
+			color[i][j] = color[i][j] + bias;
+}
+
 void ImageFilm::outputImage(char *filename , Real _scale , Real _gamma)
 {
 	IplImage *img = 0;

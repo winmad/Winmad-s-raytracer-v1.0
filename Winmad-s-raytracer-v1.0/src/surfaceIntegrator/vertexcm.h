@@ -7,6 +7,8 @@
 #include "../material/bsdf.h"
 #include <vector>
 
+static FILE *fp = fopen("debug_vcm.txt" , "w");
+
 struct PathVertex
 {
 	Vector3 pos;
@@ -41,13 +43,14 @@ public:
 		BSDF& cameraBsdf;
 		SubPathState& cameraState;
 		Color3 contrib;
+		int mergeNum;
 
 		RangeQuery(VertexCM& vertexCM , 
 			Vector3& cameraPos , BSDF& cameraBsdf ,
 			SubPathState& cameraState)
 			: vertexCM(vertexCM) , cameraPos(cameraPos) ,
 			cameraBsdf(cameraBsdf) , cameraState(cameraState) ,
-			contrib(0) {}
+			contrib(0) , mergeNum(0) {}
 
 		void process(PathVertex& lightVertex)
 		{
@@ -65,6 +68,8 @@ public:
 			if (cameraBsdfFactor.isBlack())
 				return;
 
+			mergeNum++;
+
 			cameraBsdfDirPdf *= cameraBsdf.continueProb;
 			cameraBsdfRevPdf *= lightVertex.bsdf.continueProb;
 
@@ -75,6 +80,9 @@ public:
 				cameraState.dVM * vertexCM.mis(cameraBsdfRevPdf);
 
 			Real misWeight = 1.f / (weightLight + 1.f + weightCamera);
+
+			fprintf(fp , "vm s=%d,t=%d,w=%.4lf\n" , lightVertex.pathLength , 
+				cameraState.pathLength , misWeight);
 
 			contrib = contrib + (cameraBsdfFactor | lightVertex.throughput) *
 				misWeight;

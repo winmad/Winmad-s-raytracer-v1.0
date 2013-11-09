@@ -39,6 +39,8 @@ public:
 
 	void gamma(Real _gamma);
 
+	void addBias(Color3 bias);
+
 	void outputImage(char *filename , Real _scale , Real _gamma);
 };
 
