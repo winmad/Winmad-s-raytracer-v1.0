@@ -6,6 +6,7 @@
 #include "surfaceIntegrator/photonMap.h"
 #include "surfaceIntegrator/vertexcm.h"
 #include "surfaceIntegrator/pathReusing.h"
+#include "surfaceIntegrator/bidirPathTracing.h"
 #include <opencv2/opencv.hpp>
 #include "tinyxml/tinyxml.h"
 
@@ -16,6 +17,7 @@ PathIntegrator pathIntegrator;
 PhotonIntegrator photonIntegrator;
 VertexCM vertexcmIntegrator;
 PathReusing pathReusing;
+BidirPathTracing bidirPathTracing;
 
 int main(int argc , char* argv[])
 {
@@ -51,6 +53,12 @@ int main(int argc , char* argv[])
 		pathReusing.render();
 		pathReusing.outputImage(argv[2]);
 	}
+    else if (!strcmp(argv[3] , "-bpt"))
+    {
+        bidirPathTracing.init(argv[1] , para);
+        bidirPathTracing.render();
+        bidirPathTracing.outputImage(argv[2]);
+    }
 	/*
 	else if (!strcmp(argv[3] , "-igi"))
 	{

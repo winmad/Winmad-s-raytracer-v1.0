@@ -14,8 +14,8 @@ INCLUDE_DIR = -I src/
 DEFINES = -D__DEBUG_BUILD
 
 
-#CXXFLAGS += -O3
-CXXFLAGS += -g -O0
+CXXFLAGS += -O3
+#CXXFLAGS += -g -O0
 #CXXFLAGS += -pg
 CXXFLAGS += #$(DEFINES)
 CXXFLAGS += -std=c++0x
