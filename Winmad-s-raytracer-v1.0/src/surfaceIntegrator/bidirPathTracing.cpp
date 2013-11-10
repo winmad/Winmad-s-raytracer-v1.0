@@ -38,7 +38,7 @@ void BidirPathTracing::outputImage(char *filename)
 				tmp.r , tmp.g , tmp.b);
 		}
 	}
-	film->outputImage(filename , 1.f / 3.f / iterations , 2.2);
+	film->outputImage(filename , 1.f / iterations , 2.2);
 }
 
 void BidirPathTracing::runIteration(int iter)
@@ -96,7 +96,7 @@ void BidirPathTracing::runIteration(int iter)
 				}
 			}
 
-			if (lightState.pathLength + 2 > maxPathLength)
+			if (lightState.pathLength + 1 > maxPathLength)
 				break;
 
 			if (!sampleScattering(bsdf , hitPos , lightState))
@@ -111,18 +111,10 @@ void BidirPathTracing::runIteration(int iter)
 	{
 		int pathIndex = index % (height * width);
 
-		BidirPathState cameraState , oldCameraState;
+		BidirPathState cameraState;
 		Vector3 screenSample = generateCameraSample(pathIndex , cameraState);
 
-		oldCameraState = cameraState;
-		oldCameraState.pdf = 1;
-		oldCameraState.throughput = Color3(1.f);
-
 		Color3 color(0);
-
-		Vector3 dirAtOrigin = cameraState.dir;
-		bool isNewSubPath = 0;
-		bool isStart = 1;
 
 		for (;; cameraState.pathLength++)
 		{
@@ -151,7 +143,7 @@ void BidirPathTracing::runIteration(int iter)
 			if (!bsdf.isValid())
 				break;
 
-			cameraState.pdf *= std::abs(bsdf.cosWi()) / SQR(inter.t);
+			cameraState.pdf = pdfWtoA(cameraState.pdf , inter.t , bsdf.cosWi());
 
 			if (inter.matId < 0)
 			{
@@ -211,12 +203,6 @@ void BidirPathTracing::runIteration(int iter)
 
 			if (!sampleScattering(bsdf , hitPos , cameraState))
 				break;
-
-			if (isNewSubPath)
-			{
-				isNewSubPath = 0;
-				dirAtOrigin = cameraState.dir;
-			}
 		}
 
 		film->addColor((int)screenSample.x , (int)screenSample.y , color);

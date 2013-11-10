@@ -14,8 +14,8 @@ typedef float Real;
 
 const Real PI = acos(-1.0f);
 const Real INV_PI = 1.0f / PI;
-const Real EPS = 1e-3f;
-const Real INF = 1e10f;
+const Real EPS = 1e-2f;
+const Real INF = 1e7f;
 
 Real clampVal(Real val , Real minVal , Real maxVal);
 
