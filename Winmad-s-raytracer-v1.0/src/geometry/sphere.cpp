@@ -49,8 +49,8 @@ bool Sphere::hit(const Ray& ray , Intersection& inter)
 		}
 	}
 
-	if (cmp(inter.t - ray.tmin) < 0 ||
-		cmp(inter.t - ray.tmax) > 0)
+	if (inter.t < ray.tmin ||
+		inter.t > ray.tmax)
 	{
 		inter.t = INF;
 		return 0;

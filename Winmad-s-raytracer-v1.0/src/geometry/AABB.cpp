@@ -37,7 +37,7 @@ bool AABB::hit(const Ray& ray , Real& t1 , Real& t2)
 		tmax = std::min(tmax , a * (l.z - ray.origin.z));
 	}
 
-	if (cmp(tmin - tmax) < 0) 
+	if (tmin < tmax) 
 	{
 		t1 = tmin;
 		t2 = tmax;

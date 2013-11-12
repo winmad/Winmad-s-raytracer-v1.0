@@ -72,7 +72,7 @@ public:
 
 	bool hasInf()
 	{
-		return (cmp(x - INF) >= 0 || cmp(y - INF) >= 0 || cmp(z - INF) >= 0);
+		return (x >= INF || y >= INF || z >= INF);
 	}
 };
 

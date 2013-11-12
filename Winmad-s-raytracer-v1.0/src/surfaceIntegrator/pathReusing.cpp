@@ -6,7 +6,7 @@ void PathReusing::init(char *filename , Parameters& para)
 {
 	minPathLength = 0;
 	maxPathLength = 10;
-	iterations = 10;
+	iterations = 1;
 
 	samplesPerPixel = para.SAMPLES_PER_PIXEL;
 
@@ -41,13 +41,13 @@ void PathReusing::outputImage(char *filename)
 				tmp.r , tmp.g , tmp.b);
 		}
 	}
-	film->outputImage(filename , 1.f / 3.f / iterations , 2.2);
+	film->outputImage(filename , 1.f / iterations , 2.2);
 }
 
 void PathReusing::runIteration(int iter)
 {
 	lightPathNum = height * width;
-	cameraPathNum = lightPathNum * 3;
+	cameraPathNum = lightPathNum;
 
 	Real radius = baseRadius;
 	radius /= std::pow((Real)(iter + 1) , 0.5f * (1.f - radiusAlpha));
@@ -71,7 +71,7 @@ void PathReusing::runIteration(int iter)
 
 		for (;; lightState.pathLength++)
 		{
-			Ray ray(lightState.pos + lightState.dir * EPS ,
+			Ray ray(lightState.origin + lightState.dir * EPS ,
 				lightState.dir);
 			Intersection inter;
 			if (scene.intersect(ray , inter) == NULL)
@@ -83,12 +83,15 @@ void PathReusing::runIteration(int iter)
 			if (!bsdf.isValid())
 				break;
 
-			lightState.pos = hitPos;
-			lightState.bsdf = bsdf;
-			lightState.pdf *= std::abs(bsdf.cosWi()) / SQR(inter.t);
-
 			if (!bsdf.isDelta)
-				lightStates.push_back(lightState);
+			{
+				PathState tmpLightState = lightState;
+				tmpLightState.pos = hitPos;
+				tmpLightState.bsdf = bsdf;
+				tmpLightState.pdf *= std::abs(bsdf.cosWi()) / SQR(inter.t);
+
+				lightStates.push_back(tmpLightState);
+			}
 
 			// connect to camera
 			if (!bsdf.isDelta)
@@ -111,7 +114,7 @@ void PathReusing::runIteration(int iter)
 				break;
 		}
 
-		lightStateIndex[pathIndex] = (int)lightStateIndex.size();
+		lightStateIndex[pathIndex] = (int)lightStates.size();
 	}
 
 	// generating camera paths
@@ -196,19 +199,7 @@ void PathReusing::runIteration(int iter)
 				oldCameraState = cameraState;
 				oldCameraState.origin = inter.p;
 				
-				isNewSubPath = 1;
-				
-				
-// 				SubPath subPath;
-// 				subPath.pos = cameraState.origin;
-// 				subPath.nextPos = inter.p;
-// 				subPath.throughput = cameraState.throughput;
-// 				subPath.pdf = cameraState.pdf;
-// 				subPath.bsdf = bsdf;
-// 				subPath.rasterX = (int)screenSample.x;
-// 				subPath.rasterY = (int)screenSample.y;
-// 				cameraSubPaths.push_back(subPath);
-				
+				isNewSubPath = 1;	
 			}
 
 			// vertex connection: connect to light source
@@ -284,12 +275,6 @@ void PathReusing::runIteration(int iter)
 
 		cameraSubPaths[i].contrib = cameraSubPaths[i].contrib +
 			color;
-
-// 		if (cameraSubPaths[i].isStart())
-// 		{
-// 			film->addColor(cameraSubPaths[i].rasterX , 
-// 				cameraSubPaths[i].rasterY , cameraSubPaths[i].contrib);
-// 		}
 	}
 
 	delete lightTree;
@@ -320,7 +305,7 @@ void PathReusing::runIteration(int iter)
 		}
 
 		for (int i = 0; i < cameraSubPaths.size(); i++)
-			cameraSubPaths[i].contrib = contribs[i];
+			cameraSubPaths[i].contrib = cameraSubPaths[i].contrib + contribs[i] / maxPathLength;
 		
 		delete pathTree;
 	}
@@ -388,7 +373,7 @@ Color3 PathReusing::connectToCamera(PathState& lightState ,
 	Real cosAtCamera = (-dirToCamera) ^ camera.forward;
 	Real imagePointToCameraDist = camera.imagePlaneDist / cosAtCamera;
 	Real imageToSolidAngleFactor = SQR(imagePointToCameraDist) / cosAtCamera;
-	Real imageToSurfaceFactor = imageToSolidAngleFactor * std::abs(cosAtCamera) / distEye2;
+	Real imageToSurfaceFactor = imageToSolidAngleFactor * std::abs(cosToCamera) / distEye2;
 
 	Real cameraPdfArea = imageToSurfaceFactor /* * 1.f */; // pixel area is 1
 
@@ -509,7 +494,7 @@ Color3 PathReusing::getLightRadiance(AbstractLight *light ,
 	
 	Real pdf = directPdfArea;
 
-	return radiance / pdf;
+	return radiance;
 }
 
 Color3 PathReusing::getDirectIllumination(PathState& cameraState , 
@@ -546,7 +531,7 @@ Color3 PathReusing::getDirectIllumination(PathState& cameraState ,
 	bsdfDirPdf *= light->isDelta() ? 0.f : contProb;
 	bsdfRevPdf *= contProb;
 
-	res = (illu | bsdfFactor) / (directPdf * lightPickProb);
+	res = (illu | bsdfFactor) * cosToLight / (directPdf * lightPickProb);
 
 	if (res.isBlack() || scene.occluded(hitPos , dirToLight ,
 		hitPos + dirToLight * dist))

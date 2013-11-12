@@ -63,7 +63,7 @@ void BidirPathTracing::runIteration(int iter)
 
 		for (;; lightState.pathLength++)
 		{
-			Ray ray(lightState.pos + lightState.dir * EPS ,
+			Ray ray(lightState.origin + lightState.dir * EPS ,
 				lightState.dir);
 			Intersection inter;
 			if (scene.intersect(ray , inter) == NULL)
@@ -75,12 +75,14 @@ void BidirPathTracing::runIteration(int iter)
 			if (!bsdf.isValid())
 				break;
 
-			lightState.pos = hitPos;
-			lightState.bsdf = bsdf;
-			lightState.pdf *= std::abs(bsdf.cosWi()) / SQR(inter.t);
-
 			if (!bsdf.isDelta)
-				lightStates.push_back(lightState);
+			{
+				BidirPathState tmpLightState = lightState;
+				tmpLightState.pos = hitPos;
+				tmpLightState.bsdf = bsdf;
+				tmpLightState.pdf *= std::abs(bsdf.cosWi()) / SQR(inter.t);
+				lightStates.push_back(tmpLightState);
+			}
 
 			// connect to camera
 			if (!bsdf.isDelta)
@@ -90,20 +92,25 @@ void BidirPathTracing::runIteration(int iter)
 					Vector3 imagePos = scene.camera.worldToRaster.tPoint(hitPos);
 					if (scene.camera.checkRaster(imagePos.x , imagePos.y))
 					{
-						Color3 res = connectToCamera(lightState , hitPos , bsdf);
+						// weight
+						Color3 res = connectToCamera(lightState , hitPos , bsdf) 
+							/ (lightState.pathLength + 1);
+
+						//Color3 res = connectToCamera(lightState , hitPos , bsdf);
+
 						film->addColor((int)imagePos.x , (int)imagePos.y , res);
 					}
 				}
 			}
 
-			if (lightState.pathLength + 1 > maxPathLength)
+			if (lightState.pathLength + 2 > maxPathLength)
 				break;
 
 			if (!sampleScattering(bsdf , hitPos , lightState))
 				break;
 		}
 
-		lightStateIndex[pathIndex] = (int)lightStateIndex.size();
+		lightStateIndex[pathIndex] = (int)lightStates.size();
 	}
 
 	// generating camera paths
@@ -129,9 +136,14 @@ void BidirPathTracing::runIteration(int iter)
 				{
 					if (cameraState.pathLength >= minPathLength)
 					{
+						// weight
 						color = color + (cameraState.throughput |
 							getLightRadiance(scene.background ,
-							cameraState , Vector3(0) , ray.dir));
+							cameraState , Vector3(0) , ray.dir)) / cameraState.pathLength;
+
+						//color = color + (cameraState.throughput |
+						//	getLightRadiance(scene.background ,
+						//	cameraState , Vector3(0) , ray.dir));
 					}
 				}
 				break;
@@ -151,11 +163,21 @@ void BidirPathTracing::runIteration(int iter)
 
 				if (cameraState.pathLength >= minPathLength)
 				{
+					// weight
 					color = color + (cameraState.throughput |
 						getLightRadiance(light , cameraState , 
-						hitPos , ray.dir));
+						hitPos , ray.dir)) / cameraState.pathLength;
+
+					//color = color + (cameraState.throughput |
+					//	getLightRadiance(light , cameraState , 
+					//	hitPos , ray.dir));
 				}
 				break;
+			}
+
+			if (cameraState.pathLength == 1 && inter.matId == 3)
+			{
+				int bp = 0;
 			}
 
 			if (cameraState.pathLength >= maxPathLength)
@@ -166,8 +188,13 @@ void BidirPathTracing::runIteration(int iter)
 			{
 				if (cameraState.pathLength + 1 >= minPathLength)
 				{
+					// weight
 					color = color + (cameraState.throughput |
-						getDirectIllumination(cameraState , hitPos , bsdf));
+						getDirectIllumination(cameraState , hitPos , bsdf)) 
+						/ (cameraState.pathLength + 1);
+
+					//color = color + (cameraState.throughput |
+					//	getDirectIllumination(cameraState , hitPos , bsdf));
 				}
 			}
 
@@ -196,8 +223,12 @@ void BidirPathTracing::runIteration(int iter)
 					Color3 tmp = connectVertices(lightState ,
 						bsdf , hitPos , cameraState);
 
+					// weight
 					color = color + (cameraState.throughput |
-						lightState.throughput | tmp);
+						lightState.throughput | tmp) / 
+						(lightState.pathLength + 1 + cameraState.pathLength);
+					//color = color + (cameraState.throughput |
+					//	lightState.throughput | tmp);
 				}
 			}
 
@@ -242,7 +273,7 @@ Color3 BidirPathTracing::connectToCamera(BidirPathState& lightState , const Vect
 	Camera& camera = scene.camera;
 	Vector3 dirToCamera = camera.pos - hitPos;
 
-	if (cmp(-dirToCamera ^ camera.forward) <= 0)
+	if (((-dirToCamera) ^ camera.forward) <= 0)
 		return res;
 
 	Real distEye2 = dirToCamera.sqrLength();
@@ -258,10 +289,10 @@ Color3 BidirPathTracing::connectToCamera(BidirPathState& lightState , const Vect
 
 	bsdfRevPdf *= bsdf.continueProb;
 
-	Real cosAtCamera = (-dirToCamera) ^ camera.forward;
+	Real cosAtCamera = ((-dirToCamera) ^ camera.forward);
 	Real imagePointToCameraDist = camera.imagePlaneDist / cosAtCamera;
 	Real imageToSolidAngleFactor = SQR(imagePointToCameraDist) / cosAtCamera;
-	Real imageToSurfaceFactor = imageToSolidAngleFactor * std::abs(cosAtCamera) / distEye2;
+	Real imageToSurfaceFactor = imageToSolidAngleFactor * std::abs(cosToCamera) / distEye2;
 
 	Real cameraPdfArea = imageToSurfaceFactor /* * 1.f */; // pixel area is 1
 
@@ -382,7 +413,7 @@ Color3 BidirPathTracing::getLightRadiance(AbstractLight *light , BidirPathState&
     if (lightRevPdfArea != NULL)
         *lightRevPdfArea = directPdfArea;
     
-	return radiance / pdf;
+	return radiance;
 }
 
 Color3 BidirPathTracing::getDirectIllumination(BidirPathState& cameraState , const Vector3& hitPos , BSDF& bsdf , Real *lightDirPdf , Real *lightRevPdf , Real *cameraDirPdf , Real *cameraRevPdf)
@@ -418,7 +449,7 @@ Color3 BidirPathTracing::getDirectIllumination(BidirPathState& cameraState , con
 	bsdfDirPdf *= light->isDelta() ? 0.f : contProb;
 	bsdfRevPdf *= contProb;
     
-	res = (illu | bsdfFactor) / (directPdf * lightPickProb);
+	res = (illu | bsdfFactor) * cosToLight / (directPdf * lightPickProb);
 
 	if (res.isBlack() || scene.occluded(hitPos , dirToLight ,
 		hitPos + dirToLight * dist))
@@ -468,6 +499,7 @@ Color3 BidirPathTracing::connectVertices(BidirPathState& lightState , BSDF& came
 	lightBsdfRevPdf *= lightContProb;
 
 	Real geometryTerm = cosAtLight * cosAtCamera / dist2;
+
 	if (cmp(geometryTerm) < 0)
 		return res;
 

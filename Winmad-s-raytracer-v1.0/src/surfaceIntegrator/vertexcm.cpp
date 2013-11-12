@@ -320,7 +320,7 @@ Color3 VertexCM::connectToCamera(const SubPathState& lightState ,
 	Real cosAtCamera = (-dirToCamera) ^ camera.forward;
 	Real imagePointToCameraDist = camera.imagePlaneDist / cosAtCamera;
 	Real imageToSolidAngleFactor = SQR(imagePointToCameraDist) / cosAtCamera;
-	Real imageToSurfaceFactor = imageToSolidAngleFactor * std::abs(cosAtCamera) / distEye2;
+	Real imageToSurfaceFactor = imageToSolidAngleFactor * std::abs(cosToCamera) / distEye2;
 
 	Real cameraPdfArea = imageToSurfaceFactor /* * 1.f */; // pixel area is 1
 
