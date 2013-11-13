@@ -9,9 +9,10 @@ struct BidirPathState
 	Vector3 dir;
 	Color3 throughput;
 	BSDF bsdf;
-	Real pdf;
+	Real pdf; // respect to area
 
-	int pathLength : 30;
+	int pathLength : 15;
+	int specularVertexNum : 15;
 	int specularPath : 1;
 	int isFiniteLight : 1;
 };
