@@ -107,10 +107,10 @@ public:
 	void calcComponentProb(const Material& mat , 
 		ComponentProb& componentProb);
 	
-	// calculate BSDF value
+	// calculate BSDF value, f(x[i-1]->x[i]->x[i+1])
 	// pdf w.r.t solid angle
-	// directPdf: sample wo given wi
-	// reversePdf: sample wi given wo
+	// directPdf: sample wo given wi, pdf_w(x[i]->x[i+1])
+	// reversePdf: sample wi given wo, pdf_w(x[i]->x[i-1])
 	Color3 f(const Scene& scene , const Vector3& woWorld ,
 		Real& cosWo , Real *directPdf = NULL , Real *reversePdf = NULL);
 	Color3 calcDiffuse(const Material& mat , const Vector3& woLocal ,
@@ -129,7 +129,7 @@ public:
 
 	// samples new direction from BSDF
 	// return value is BSDF factor
-	// also return sampled direction and pdf
+	// also return sampled direction and pdf : pdf_w(x[i]->x[i+1])
 	Color3 sample(const Scene& scene , const Vector3& rand3 ,
 		Vector3& woWorld , Real& pdf , Real& cosWo , 
 		int *sampledBSDFType = NULL);

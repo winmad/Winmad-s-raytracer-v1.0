@@ -13,6 +13,7 @@ void BidirPathTracing::init(char *filename , Parameters& para)
 	scene.init(filename , para);
 
 	height = para.HEIGHT; width = para.WIDTH;
+	pixelNum = height * width;
 
 	film = new ImageFilm(height , width);
 }
@@ -34,11 +35,18 @@ void BidirPathTracing::outputImage(char *filename)
 			film->color[j][i] = tmp;
 
 			tmp = film->color[i][j];
+			/*
 			fprintf(fp , "c(%d,%d)=(%.3f,%.3f,%.3f)\n" , i , j ,
 				tmp.r , tmp.g , tmp.b);
+			*/
 		}
 	}
 	film->outputImage(filename , 1.f / iterations , 2.2);
+}
+
+static Real mis(Real pdf)
+{
+	return pdf;
 }
 
 void BidirPathTracing::runIteration(int iter)
@@ -59,9 +67,13 @@ void BidirPathTracing::runIteration(int iter)
 	for (int pathIndex = 0; pathIndex < lightPathNum; pathIndex++)
 	{
 		BidirPathState lightState;
+
+		bool deltaLight;
 		generateLightSample(lightState);
 
-		for (;; lightState.pathLength++)
+		int s = 1;
+
+		for (;; lightState.pathLength++ , s++)
 		{
 			Ray ray(lightState.origin + lightState.dir * EPS ,
 				lightState.dir);
@@ -77,8 +89,13 @@ void BidirPathTracing::runIteration(int iter)
 
 			lightState.pos = hitPos;
 			lightState.bsdf = bsdf;
-			lightState.pdf *= std::abs(bsdf.cosWi()) / SQR(inter.t);
 
+			if (lightState.pathLength > 1 || lightState.isFiniteLight)
+			{
+				lightState.dVCM *= mis(SQR(inter.t));
+			}
+			lightState.dVCM /= mis(std::abs(bsdf.cosWi()));
+			
 			if (!bsdf.isDelta)
 				lightStates.push_back(lightState);
 
@@ -90,11 +107,10 @@ void BidirPathTracing::runIteration(int iter)
 					Vector3 imagePos = scene.camera.worldToRaster.tPoint(hitPos);
 					if (scene.camera.checkRaster(imagePos.x , imagePos.y))
 					{
-						// weight
-						Real weight = 1.f / (lightState.pathLength + 1.f - lightState.specularVertexNum);
+						Color3 res = connectToCamera(lightState , hitPos , bsdf);
 
-						Color3 res = connectToCamera(lightState , hitPos , bsdf) *
-							weight;
+						// weight
+						//Real weight = 1.f / (lightState.pathLength + 1 - lightState.specularVertexNum);
 
 						film->addColor((int)imagePos.x , (int)imagePos.y , res);
 					}
@@ -151,8 +167,6 @@ void BidirPathTracing::runIteration(int iter)
 			if (!bsdf.isValid())
 				break;
 
-			cameraState.pdf = pdfWtoA(cameraState.pdf , inter.t , bsdf.cosWi());
-
 			if (inter.matId < 0)
 			{
 				AbstractLight *light = scene.lights[-inter.matId - 1];
@@ -207,6 +221,9 @@ void BidirPathTracing::runIteration(int iter)
 					if (lightState.pathLength + 1 +
 						cameraState.pathLength > maxPathLength)
 						break;
+					
+					if (lightState.bsdf.isDelta)
+						continue;
 
 					Color3 tmp = connectVertices(lightState ,
 						bsdf , hitPos , cameraState);
@@ -231,6 +248,7 @@ void BidirPathTracing::runIteration(int iter)
 
 void BidirPathTracing::generateLightSample(BidirPathState& lightState)
 {
+
 	int lightNum = scene.lights.size();
 	Real lightPickProb = 1.f / lightNum;
 
@@ -252,14 +270,21 @@ void BidirPathTracing::generateLightSample(BidirPathState& lightState)
 	lightState.specularPath = 1;
 	lightState.specularVertexNum = 0;
 
-	lightState.pdf = emissionPdf;
-
 	lightState.throughput = lightState.throughput;
+
+	lightState.dVCM = mis(directPdf / emissionPdf);
+	if (!light->isDelta())
+	{
+		lightState.dVC = mis(1.f / emissionPdf);
+	}
+	else
+	{
+		lightState.dVC = 0.f;
+	}
 }
 
 Color3 BidirPathTracing::connectToCamera(BidirPathState& lightState , 
-	const Vector3& hitPos , BSDF& bsdf , Real *cameraDirPdf , 
-	Real *cameraRevPdf)
+	const Vector3& hitPos , BSDF& bsdf)
 {
 	Color3 res(0);
 
@@ -275,8 +300,6 @@ Color3 BidirPathTracing::connectToCamera(BidirPathState& lightState ,
 
 	Real cosToCamera , bsdfDirPdf , bsdfRevPdf;
 
-	// p_w(y[s]->z[0]) = bsdfDirPdf
-
 	Color3 bsdfFactor = bsdf.f(scene , dirToCamera , cosToCamera ,
 		&bsdfDirPdf , &bsdfRevPdf);
 
@@ -290,9 +313,8 @@ Color3 BidirPathTracing::connectToCamera(BidirPathState& lightState ,
 	Real imageToSolidAngleFactor = SQR(imagePointToCameraDist) / cosAtCamera;
 	Real imageToSurfaceFactor = imageToSolidAngleFactor * std::abs(cosToCamera) / distEye2;
 
-	// p_a(z[0]->y[s]) = cameraPdfArea
-	Real cameraPdfArea = imageToSurfaceFactor /* * 1.f */; // pixel area is 1
-
+	Real cameraPdfA = imageToSurfaceFactor /* * 1.f */; // pixel area is 1
+	
 	Real surfaceToImageFactor = 1.f / imageToSurfaceFactor;
 
 	// We divide the contribution by surfaceToImageFactor to convert the (already
@@ -300,7 +322,7 @@ Color3 BidirPathTracing::connectToCamera(BidirPathState& lightState ,
 	// pixel integral is actually defined. We also divide by the number of samples
 	// this technique makes
 	res = (lightState.throughput | bsdfFactor) /
-		(cameraPathNum * surfaceToImageFactor);
+		(pixelNum * surfaceToImageFactor);
     
     if (res.isBlack())
 		return res;
@@ -308,7 +330,14 @@ Color3 BidirPathTracing::connectToCamera(BidirPathState& lightState ,
 	if (scene.occluded(hitPos , dirToCamera , camera.pos))
 		return Color3(0);
 
-	return res;
+	Real wLight = mis(cameraPdfA / lightPathNum) * (lightState.dVCM + 
+		mis(bsdfRevPdf) * lightState.dVC);
+
+	Real weight = 1.f / (wLight + 1.f);
+
+	fprintf(fp , "weight = %.6f\n" , weight);
+
+	return res * weight;
 }
 
 bool BidirPathTracing::sampleScattering(BSDF& bsdf , 
@@ -338,13 +367,18 @@ bool BidirPathTracing::sampleScattering(BSDF& bsdf ,
 	// i.e. after tracing the ray, out of the procedure
 	if (sampledBSDFType & BSDF_SPECULAR)
 	{
-		pathState.pdf *= 1.f;
 		pathState.specularVertexNum++;
+
+		pathState.dVCM = 0.f;
+		pathState.dVC *= mis(cosWo);
 	}
 	else
 	{
-		pathState.pdf *= bsdfDirPdf * cosWo;
 		pathState.specularPath &= 0;
+
+		pathState.dVC = mis(1.f / bsdfDirPdf) * (pathState.dVCM +
+			pathState.dVC * mis(bsdfRevPdf));
+		pathState.dVCM = mis(1.f / bsdfDirPdf);
 	}
 
 	pathState.origin = hitPos;
@@ -381,7 +415,6 @@ Vector3 BidirPathTracing::generateCameraSample(const int pathIndex ,
 	cameraState.pathLength = 1;
 	cameraState.specularPath = 1;
 	cameraState.specularVertexNum = 0;
-	cameraState.pdf = cameraPdf;
 
 	cameraState.throughput = Color3(1);
 	
@@ -390,7 +423,7 @@ Vector3 BidirPathTracing::generateCameraSample(const int pathIndex ,
 
 Color3 BidirPathTracing::getLightRadiance(AbstractLight *light , 
 	BidirPathState& cameraState , const Vector3& hitPos , 
-	const Vector3& rayDir , Real *lightDirPdfArea , Real *lightRevPdfArea)
+	const Vector3& rayDir)
 {
 	int lightCount = scene.lights.size();
 	Real lightPickProb = 1.f / lightCount;
@@ -409,18 +442,12 @@ Color3 BidirPathTracing::getLightRadiance(AbstractLight *light ,
 
 	directPdfArea *= lightPickProb;
 	emissionPdf *= lightPickProb;
-	
-	Real pdf = directPdfArea;
 
-    if (lightDirPdfArea != NULL)
-        *lightDirPdfArea = emissionPdf;
-    if (lightRevPdfArea != NULL)
-        *lightRevPdfArea = directPdfArea;
-    
 	return radiance;
 }
 
-Color3 BidirPathTracing::getDirectIllumination(BidirPathState& cameraState , const Vector3& hitPos , BSDF& bsdf , Real *lightDirPdf , Real *lightRevPdf , Real *cameraDirPdf , Real *cameraRevPdf)
+Color3 BidirPathTracing::getDirectIllumination(BidirPathState& cameraState , 
+	const Vector3& hitPos , BSDF& bsdf)
 {
 	Color3 res(0);
 
@@ -431,47 +458,115 @@ Color3 BidirPathTracing::getDirectIllumination(BidirPathState& cameraState , con
 	AbstractLight *light = scene.lights[lightId];
 
 	Vector3 dirToLight;
-	Real dist , directPdf , emissionPdf , cosAtLight;
+	Real dist , directPdf , emissionPdf , cosAtLight , cosAtSurface;
+	int sampledBSDFType;
 
 	Color3 illu = light->illuminance(scene.sceneSphere ,
 		hitPos , rng.randVector3() , dirToLight , dist ,
 		directPdf , &emissionPdf , &cosAtLight);
 
-	if (illu.isBlack())
-		return res;
+	if (!illu.isBlack() && directPdf > 0)
+	{
+		Real bsdfDirPdf , bsdfRevPdf , cosToLight;
 
-	Real bsdfDirPdf , bsdfRevPdf , cosToLight;
+		Color3 bsdfFactor = bsdf.f(scene , dirToLight ,
+			cosToLight , &bsdfDirPdf , &bsdfRevPdf);
 
-	Color3 bsdfFactor = bsdf.f(scene , dirToLight ,
-		cosToLight , &bsdfDirPdf , &bsdfRevPdf);
+		Color3 tmp;
 
-	if (bsdfFactor.isBlack())
-		return res;
+		if (!bsdfFactor.isBlack())
+		{	
+			Real contProb = bsdf.continueProb;
 
-	Real contProb = bsdf.continueProb;
+			bsdfDirPdf *= light->isDelta() ? 0.f : contProb;
+			bsdfRevPdf *= contProb;
+            
+			tmp = (illu | bsdfFactor) * cosToLight / (directPdf * lightPickProb);
 
-	bsdfDirPdf *= light->isDelta() ? 0.f : contProb;
-	bsdfRevPdf *= contProb;
-    
-	res = (illu | bsdfFactor) * cosToLight / (directPdf * lightPickProb);
+			if (!tmp.isBlack() && !scene.occluded(hitPos , dirToLight ,
+				hitPos + dirToLight * dist))
+			{
+				if (light->isDelta())
+				{
+					res = res + tmp;
+				}
+				else
+				{
+					Real weight = mis(directPdf) / 
+						(mis(directPdf) + mis(bsdfDirPdf));
 
-	if (res.isBlack() || scene.occluded(hitPos , dirToLight ,
-		hitPos + dirToLight * dist))
-		return Color3(0);
-    
-    if (lightDirPdf != NULL)
-        *lightDirPdf = emissionPdf;
-    if (lightRevPdf != NULL)
-        *lightRevPdf = directPdf;
-    if (cameraDirPdf != NULL)
-        *cameraDirPdf = bsdfDirPdf;
-    if (cameraRevPdf != NULL)
-        *cameraRevPdf = bsdfRevPdf;
+					res = res + tmp * weight;
+				}
+			}
+		}
+	}
+	
+	if (!light->isDelta())
+	{
+		Color3 bsdfFactor = bsdf.sample(scene , rng.randVector3() ,
+			dirToLight , directPdf , cosAtSurface , &sampledBSDFType);
+
+		if (!bsdfFactor.isBlack() && directPdf > 0)
+		{
+			Real weight = 1.f;
+
+			Real lightPdf;
+			if (!(sampledBSDFType & BSDF_SPECULAR))
+			{
+				illu = light->getRadiance(scene.sceneSphere , dirToLight , hitPos ,
+					&lightPdf , &emissionPdf);
+
+				if (cmp(lightPdf) == 0)
+					return res;
+
+				weight = mis(directPdf) /
+					(mis(directPdf) + mis(lightPdf));
+			}
+
+			Intersection lightInter;
+			Color3 tmp(0.f);
+			Ray ray(hitPos + dirToLight * EPS , dirToLight);
+
+			if (scene.intersect(ray , lightInter) != NULL)
+			{
+				if (lightInter.matId < 0)
+				{
+					if (light != scene.lights[-lightInter.matId - 1])
+					{
+						illu = Color3(0.f);
+					}
+				}
+				else
+				{
+					illu = Color3(0.f);
+				}
+			}
+			else
+			{
+				illu = Color3(0.f);
+				if (scene.background != NULL)
+				{
+					illu = getLightRadiance(scene.background ,
+							cameraState , Vector3(0) , ray.dir);
+				}
+			}
+
+			if (!illu.isBlack())
+			{
+				tmp = (illu | bsdfFactor) * cosAtSurface /
+					(directPdf);
+				res = res + tmp * weight;
+			}
+		}
+	}
     
 	return res;
 }
 
-Color3 BidirPathTracing::connectVertices(BidirPathState& lightState , BSDF& cameraBsdf , const Vector3& hitPos , BidirPathState& cameraState , Real *lightDirPdf , Real *lightRevPdf , Real *cameraDirPdf , Real *cameraRevPdf)
+// we force to connect eye path to light path 
+Color3 BidirPathTracing::connectVertices(BidirPathState& lightState , 
+	BSDF& cameraBsdf , const Vector3& hitPos , 
+	BidirPathState& cameraState)
 {
 	Vector3 dir = lightState.pos - hitPos;
 	Real dist2 = dir.sqrLength();
@@ -516,19 +611,5 @@ Color3 BidirPathTracing::connectVertices(BidirPathState& lightState , BSDF& came
 		hitPos + dir * dist))
 		return Color3(0);
 
-    if (lightDirPdf != NULL)
-        *lightDirPdf = lightBsdfDirPdf;
-    if (lightRevPdf != NULL)
-        *lightRevPdf = lightBsdfRevPdf;
-    if (cameraDirPdf != NULL)
-        *cameraDirPdf = cameraBsdfDirPdf;
-    if (cameraRevPdf != NULL)
-        *cameraRevPdf = cameraBsdfRevPdf;
-    
 	return res;
-}
-
-Real BidirPathTracing::mis(Real pdf)
-{
-	return pdf;
 }

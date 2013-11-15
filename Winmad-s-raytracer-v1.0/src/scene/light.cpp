@@ -6,15 +6,25 @@ Color3 AreaLight::illuminance(const SceneSphere& sceneSphere ,
 	Vector3& dirToLight , Real& dist , Real& directPdf , 
 	Real *emissionPdf /* = NULL  */, Real *cosAtLight /* = NULL */)
 {
+	if (emissionPdf)
+		*emissionPdf = 0;
+	if (cosAtLight)
+		*cosAtLight = 0;
+
 	Vector3 lightPoint = sampleTriangle(rand3 , p0 , p0 + d1 , p0 + d2);
 	dirToLight = lightPoint - pos;
 	dist = dirToLight.length();
 	dirToLight = dirToLight / dist;
 
-	Real cosNormalDir = localFrame.normal() ^ (-dirToLight);
+	Real cosNormalDir = (localFrame.normal() ^ (-dirToLight));
 
 	if (cmp(cosNormalDir) <= 0)
+	{
+		directPdf = 0;
+		if (emissionPdf)
+			*emissionPdf = 0;
 		return Color3(0);
+	}
 
 	directPdf = invArea * SQR(dist) / cosNormalDir;
 
@@ -32,6 +42,11 @@ Color3 AreaLight::emit(const SceneSphere& sceneSphere ,
 	Vector3& pos , Vector3& dir , Real& emissionPdf , 
 	Real *directPdfArea , Real *cosAtLight)
 {
+	if (directPdfArea)
+		*directPdfArea = 0;
+	if (cosAtLight)
+		*cosAtLight = 0;
+
 	pos = sampleTriangle(posRand3 ,p0 , p0 + d1 , p0 + d2);
 	Vector3 localDirOut = sampleCosHemisphere(dirRand3 , &emissionPdf);
 	emissionPdf *= invArea;
@@ -52,10 +67,22 @@ Color3 AreaLight::getRadiance(const SceneSphere& sceneSphere ,
 	const Vector3& rayDir , const Vector3& hitPos , 
 	Real *directPdfArea /* = NULL  */, Real *emissionPdf /* = NULL */)
 {
-	Real cosNormalDir = clampVal(localFrame.normal() ^ (-rayDir) , 0.f , 1.f);
+	if (directPdfArea)
+		*directPdfArea = 0;
+	if (emissionPdf)
+		*emissionPdf = 0;
+
+	Real cosNormalDir = clampVal((localFrame.normal() ^ (-rayDir)) , 0.f , 1.f);
 
 	if (cmp(cosNormalDir) == 0)
+	{
+		if (directPdfArea)
+			*directPdfArea = 0;
+		if (emissionPdf)
+			*emissionPdf = 0;
+
 		return Color3(0);
+	}
 
 	if (directPdfArea)
 		*directPdfArea = invArea;
@@ -84,6 +111,11 @@ Color3 DirectionalLight::illuminance(const SceneSphere& sceneSphere ,
 	Vector3& dirToLight , Real& dist , Real& directPdf , 
 	Real *emissionPdf /* = NULL  */, Real *cosAtLight /* = NULL */)
 {
+	if (emissionPdf)
+		*emissionPdf = 0;
+	if (cosAtLight)
+		*cosAtLight = 0;
+
 	dirToLight = -localFrame.normal();
 	dist = INF;
 	directPdf = 1.f;
@@ -102,6 +134,11 @@ Color3 DirectionalLight::emit(const SceneSphere& sceneSphere ,
 	Vector3& pos , Vector3& dir , Real& emissionPdf , 
 	Real *directPdfArea , Real *cosAtLight)
 {
+	if (directPdfArea)
+		*directPdfArea = 0;
+	if (cosAtLight)
+		*cosAtLight = 0;
+
 	Vector3 xy = sampleUniformDisk(posRand3);
 
 	pos = sceneSphere.sceneCenter + (-localFrame.normal() +
@@ -142,6 +179,11 @@ Color3 PointLight::illuminance(const SceneSphere& sceneSphere ,
 	Vector3& dirToLight , Real& dist , Real& directPdf , 
 	Real *emissionPdf /* = NULL  */, Real *cosAtLight /* = NULL */)
 {
+	if (emissionPdf)
+		*emissionPdf = 0;
+	if (cosAtLight)
+		*cosAtLight = 0;
+
 	dirToLight = lightPos - pos;
 	dist = dirToLight.length();
 	dirToLight = dirToLight / dist;
@@ -162,6 +204,11 @@ Color3 PointLight::emit(const SceneSphere& sceneSphere ,
 	Vector3& pos , Vector3& dir , Real& emissionPdf , 
 	Real *directPdfArea , Real *cosAtLight)
 {
+	if (directPdfArea)
+		*directPdfArea = 0;
+	if (cosAtLight)
+		*cosAtLight = 0;
+
 	pos = lightPos;
 	dir = sampleUniformSphere(dirRand3 , &emissionPdf);
 
@@ -196,6 +243,11 @@ Color3 BackgroundLight::illuminance(const SceneSphere& sceneSphere ,
 	Real& dist , Real& directPdf , 
 	Real *emissionPdf /* = NULL  */, Real *cosAtLight /* = NULL */)
 {
+	if (emissionPdf)
+		*emissionPdf = 0;
+	if (cosAtLight)
+		*cosAtLight = 0;
+	
 	dirToLight = sampleUniformSphere(rand3 , &directPdf);
 
 	dist = INF;
@@ -215,6 +267,11 @@ Color3 BackgroundLight::emit(const SceneSphere& sceneSphere ,
 	Vector3& pos , Vector3& dir , Real& emissionPdf , 
 	Real *directPdfArea , Real *cosAtLight)
 {
+	if (directPdfArea)
+		*directPdfArea = 0;
+	if (cosAtLight)
+		*cosAtLight = 0;
+
 	Real directPdf;
 
 	dir = sampleUniformSphere(dirRand3 , &directPdf);
@@ -243,6 +300,11 @@ Color3 BackgroundLight::getRadiance(const SceneSphere& sceneSphere ,
 	const Vector3& rayDir , const Vector3& hitPos , 
 	Real *directPdfArea /* = NULL  */, Real *emissionPdf /* = NULL */)
 {
+	if (directPdfArea)
+		*directPdfArea = 0;
+	if (emissionPdf)
+		*emissionPdf = 0;
+
 	Real directPdf = uniformSpherePdf();
 
 	Real positionPdf = uniformDiskPdf() * sceneSphere.invSceneRadiusSqr;

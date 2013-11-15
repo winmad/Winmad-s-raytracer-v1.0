@@ -9,7 +9,7 @@ struct BidirPathState
 	Vector3 dir;
 	Color3 throughput;
 	BSDF bsdf;
-	Real pdf; // respect to area
+	Real dVCM , dVC;
 
 	int pathLength : 15;
 	int specularVertexNum : 15;
@@ -21,7 +21,7 @@ class BidirPathTracing : public SurfaceIntegrator
 {
 public:
 	int minPathLength , maxPathLength;
-	int lightPathNum , cameraPathNum;
+	int lightPathNum , cameraPathNum , pixelNum;
 	int iterations;
 
 	std::vector<BidirPathState> lightStates;
@@ -29,7 +29,7 @@ public:
 
     std::vector<int> lightStateIndex;
     std::vector<int> cameraStateIndex;
-    
+
 	BidirPathTracing() {}
 
 	void init(char *filename , Parameters& para);
@@ -42,7 +42,8 @@ public:
 
 	void generateLightSample(BidirPathState& lightState);
 
-	Color3 connectToCamera(BidirPathState& lightState , const Vector3& hitPos , BSDF& bsdf , Real *cameraDirPdf = NULL , Real *cameraRevPdf = NULL);
+	Color3 connectToCamera(BidirPathState& lightState , 
+		const Vector3& hitPos , BSDF& bsdf);
 
 	bool sampleScattering(BSDF& bsdf , const Vector3& hitPos , 
 		BidirPathState& pathState);
@@ -50,13 +51,15 @@ public:
 	Vector3 generateCameraSample(const int pathIndex , 
 		BidirPathState& cameraState);
 
-	Color3 getLightRadiance(AbstractLight *light , BidirPathState& cameraState , const Vector3& hitPos , const Vector3& rayDir , Real *lightDirPdfArea = NULL , Real *lightRevPdfArea = NULL);
+	Color3 getLightRadiance(AbstractLight *light , 
+		BidirPathState& cameraState , const Vector3& hitPos , 
+		const Vector3& rayDir);
 
-	Color3 getDirectIllumination(BidirPathState& cameraState , const Vector3& hitPos , BSDF& bsdf , Real *lightDirPdf = NULL , Real *lightRevPdf = NULL , Real *cameraDirPdf = NULL , Real *cameraRevPdf = NULL);
+	Color3 getDirectIllumination(BidirPathState& cameraState , 
+		const Vector3& hitPos , BSDF& bsdf);
 
-	Color3 connectVertices(BidirPathState& lightState , BSDF& bsdf , const Vector3& hitPos , BidirPathState& cameraState , Real *lightDirPdf = NULL , Real *lightRevPdf = NULL , Real *cameraDirPdf = NULL , Real *cameraRevPdf = NULL);
-
-	Real mis(Real pdf);
+	Color3 connectVertices(BidirPathState& lightState , BSDF& bsdf , 
+		const Vector3& hitPos , BidirPathState& cameraState);
 };
 
 #endif

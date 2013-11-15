@@ -24,6 +24,9 @@ public:
      * and cosine from lights normal (helps with PDF of hitting the light,
      * but set to 1 for point lights).
      *
+	 * directPdf = pdf_w(y[1]->y[0])
+	 * emission = pdf_w(y[0]->y[1]) * pdf_a(y[0])
+	 *
      * Returns radiance.
      */
 	virtual Color3 illuminance(const SceneSphere& sceneSphere ,
@@ -40,6 +43,9 @@ public:
      * Can also supply pdf (w.r.t. area) of choosing this position when calling
      * Illuminate. Also provides cosine on the light (this is 1 for point lights etc.).
      *
+	 * directPdfArea = pdf_a(y[1]->y[0])
+	 * emissionPdf = pdf_w(y[0]->y[1]) * pdf_a(y[0])
+	 *
      * Returns "energy" that particle carries
      */
 	virtual Color3 emit(const SceneSphere& sceneSphere ,
@@ -52,6 +58,10 @@ public:
      * Given ray direction and hitpoint, it returns radiance.
      * Can also provide area pdf of sampling hitpoint in Illuminate,
      * and of emitting particle along the ray (in opposite direction).
+	 *
+	 * directPdfArea = pdf_a(y[0])
+	 * emissionPdf = pdf_w(y[0]->y[1])
+	 *
      */
 	virtual Color3 getRadiance(const SceneSphere& sceneSphere ,
 		const Vector3& rayDir , const Vector3& hitPos ,
@@ -62,6 +72,11 @@ public:
 	virtual bool isFinite() = 0;
 
 	virtual bool isDelta() = 0;
+
+	virtual Real areaFactor()
+	{
+		return 1.f;
+	}
 };
 
 class AreaLight : public AbstractLight
@@ -106,6 +121,11 @@ public:
 	virtual bool isFinite();
 
 	virtual bool isDelta();
+
+	virtual Real areaFactor()
+	{
+		return invArea;
+	}
 };
 
 class DirectionalLight : public AbstractLight

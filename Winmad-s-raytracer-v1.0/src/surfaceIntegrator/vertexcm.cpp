@@ -342,7 +342,7 @@ Color3 VertexCM::connectToCamera(const SubPathState& lightState ,
 	if (scene.occluded(hitPos , dirToCamera , camera.pos))
 		return Color3(0);
 
-	fprintf(fp , "s=%d,t=%d,w=%.4lf\n" , lightState.pathLength , 0 , misWeight);
+	fprintf(fp , "s=%d,t=%d,w=%.6f\n" , lightState.pathLength , 0 , misWeight);
 	return res;
 }
 
@@ -461,7 +461,7 @@ Color3 VertexCM::getLightRadiance(AbstractLight *light ,
 
 	Real misWeight = 1.f / (1.f + weightCamera);
 
-	fprintf(fp , "s=%d,t=%d,w=%.4lf\n" , 0 , cameraState.pathLength , misWeight);
+	//fprintf(fp , "s=%d,t=%d,w=%.6f\n" , 0 , cameraState.pathLength , misWeight);
 
 	return radiance * misWeight;
 }
@@ -516,7 +516,7 @@ Color3 VertexCM::getDirectIllumination(SubPathState& cameraState ,
 		hitPos + dirToLight * dist))
 		return Color3(0);
 
-	fprintf(fp , "s=%d,t=%d,w=%.4lf\n" , 1 , cameraState.pathLength , misWeight);
+	//fprintf(fp , "s=%d,t=%d,w=%.6f\n" , 1 , cameraState.pathLength , misWeight);
 
 	return res;
 }
@@ -577,8 +577,8 @@ Color3 VertexCM::connectVertices(PathVertex& lightVertex ,
 		cameraHitPos + dir * dist))
 		return Color3(0);
 
-	fprintf(fp , "s=%d,t=%d,w=%.4lf\n" , lightVertex.pathLength , 
-		cameraState.pathLength , misWeight);
+	//fprintf(fp , "s=%d,t=%d,w=%.6f\n" , lightVertex.pathLength , 
+	//	cameraState.pathLength , misWeight);
 
 	return res;
 }
