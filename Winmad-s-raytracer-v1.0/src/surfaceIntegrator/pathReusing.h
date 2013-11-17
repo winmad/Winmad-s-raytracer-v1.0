@@ -127,7 +127,7 @@ public:
 	};
 
 	int minPathLength , maxPathLength;
-	int lightPathNum , cameraPathNum;
+	int lightPathNum , cameraPathNum , pixelNum;
 	int iterations;
 	Real baseRadius;         // initial merging radius
 	Real radiusAlpha;        // radius reduction per iteration
