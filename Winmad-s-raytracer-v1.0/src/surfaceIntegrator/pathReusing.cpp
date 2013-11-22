@@ -61,7 +61,7 @@ void PathReusing::runIteration(int iter)
 	lightStates.reserve(lightPathNum);
 	lightStates.clear();
 
-	//cameraSubPaths.reserve(cameraPathNum);
+	cameraSubPaths.reserve(cameraPathNum);
 	cameraSubPaths.clear();
 
 	// generating light paths
@@ -212,6 +212,7 @@ void PathReusing::runIteration(int iter)
 				isNewSubPath = 1;	
 			}
 
+			int N = (int)cameraSubPaths.size() - 1;
 			// vertex connection: connect to light source
 			if (!bsdf.isDelta)
 			{
@@ -223,6 +224,10 @@ void PathReusing::runIteration(int iter)
                     
 					color = color + (cameraState.throughput |
 						getDirectIllumination(cameraState , hitPos , bsdf)) * weight;
+
+					cameraSubPaths[N].lightContrib = cameraSubPaths[N].lightContrib + 
+						(cameraSubPaths[N].throughput | getDirectIllumination(cameraState , hitPos , bsdf)) * 
+						(0.5f);
 				}
 			}
 
@@ -257,6 +262,10 @@ void PathReusing::runIteration(int iter)
                     
 					color = color + (cameraState.throughput |
                                      lightState.throughput | tmp) * weight;
+
+					cameraSubPaths[N].lightContrib = cameraSubPaths[N].lightContrib + 
+						(cameraSubPaths[N].throughput | lightState.throughput | tmp) * 
+						(0.5f);
 				}
 			}
 
@@ -293,18 +302,19 @@ void PathReusing::runIteration(int iter)
 
         Real weight = 0.5f;
 
-		cameraSubPaths[i].contrib = cameraSubPaths[i].contrib +
+		cameraSubPaths[i].lightContrib = cameraSubPaths[i].lightContrib +
 			color * weight;
 	}
 
 	delete lightTree;
 
-	kernel = 1.f / (PI * radiusSqr * lightPathNum * cameraPathNum);
+	kernel = 1.f / (PI * radiusSqr * lightPathNum);
+	Real k2 = 1.f / cameraPathNum;
 
 	std::vector<Color3> contribs;
 	contribs.resize(cameraSubPaths.size());
 
-	for (int mergeIter = 0; mergeIter < 0; mergeIter++)
+	for (int mergeIter = 0; mergeIter < maxPathLength; mergeIter++)
 	{
 		pathTree = new KdTree<SubPath>(cameraSubPaths);
 
@@ -318,16 +328,15 @@ void PathReusing::runIteration(int iter)
 			//fprintf(fp , "%d\n" , query.mergeNum);
 
 			Color3 color = (cameraSubPaths[i].throughput | query.contrib) *
-				kernel;
+				kernel * k2;
 
             Real weight = 0.5f;
             
-			contribs[i] =  cameraSubPaths[i].contrib +
-				color * weight;
+			contribs[i] = color * weight;
 		}
 
 		for (int i = 0; i < cameraSubPaths.size(); i++)
-			cameraSubPaths[i].contrib = cameraSubPaths[i].contrib + contribs[i];
+			cameraSubPaths[i].pathContrib = contribs[i];
 		
 		delete pathTree;
 	}
@@ -336,8 +345,9 @@ void PathReusing::runIteration(int iter)
 	{
 		if (cameraSubPaths[i].isStart())
 		{
-			//film->addColor(cameraSubPaths[i].rasterX , 
-			//	cameraSubPaths[i].rasterY , cameraSubPaths[i].contrib);
+			film->addColor(cameraSubPaths[i].rasterX , 
+				cameraSubPaths[i].rasterY , 
+				cameraSubPaths[i].lightContrib + cameraSubPaths[i].pathContrib);
 		}
 	}
 }

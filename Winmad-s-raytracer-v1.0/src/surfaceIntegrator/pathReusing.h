@@ -22,7 +22,8 @@ public:
 	Vector3 pos; // origin
 	Vector3 nextPos; // origin -> nextPos
 	Color3 throughput;
-	Color3 contrib;
+	Color3 lightContrib , pathContrib;
+
 	Real pdf;
 
 	Vector3 wo; // dir at origin
@@ -40,7 +41,8 @@ public:
 		throughput.b = curPathState.throughput.b / oldPathState.throughput.b;
 		pdf = curPathState.pdf / oldPathState.pdf;
 
-		contrib = Color3(0.f);
+		lightContrib = pathContrib = Color3(0.f);
+		rasterX = rasterY = -1;
 	}
 
 	bool isStart()
@@ -107,10 +109,9 @@ public:
 
 		void process(SubPath& subPath)
 		{
-			if (subPath.contrib.isBlack())
+			Color3 totContrib = subPath.lightContrib + subPath.pathContrib;
+			if (totContrib.isBlack())
 				return;
-
-			mergeNum++;
 
 			Real cosTerm , bsdfDirPdf , bsdfRevPdf;
 			Color3 bsdfFactor = cameraSubPath.bsdf.f(pathReusing.scene ,
@@ -122,7 +123,7 @@ public:
 			bsdfDirPdf *= cameraSubPath.bsdf.continueProb;
 			bsdfRevPdf *= cameraSubPath.bsdf.continueProb;
 
-			contrib = contrib + (bsdfFactor | subPath.contrib);
+			contrib = contrib + (bsdfFactor | totContrib);
 		}
 	};
 

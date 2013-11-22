@@ -325,7 +325,7 @@ Color3 BidirPathTracing::connectToCamera(BidirPathState& lightState ,
 	// pixel integral is actually defined. We also divide by the number of samples
 	// this technique makes
 	res = (lightState.throughput | bsdfFactor) /
-		(pixelNum * surfaceToImageFactor);
+		(lightPathNum * surfaceToImageFactor);
     
     if (res.isBlack())
 		return res;
