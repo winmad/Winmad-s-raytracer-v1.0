@@ -102,7 +102,7 @@ void PathReusing::runIteration(int iter)
 					if (scene.camera.checkRaster(imagePos.x , imagePos.y))
 					{
 						Color3 res = connectToCamera(lightState , hitPos , bsdf);
-                        Real weight = 1.f / (1 << lightState.pathLength);
+                        Real weight = 1.f / (1 + lightState.pathLength);
 
                         res = res * weight;
 
@@ -176,7 +176,7 @@ void PathReusing::runIteration(int iter)
 
 				if (cameraState.pathLength >= minPathLength)
 				{
-                    Real weight = 1.f / (1 << cameraState.pathLength);
+                    Real weight = 1.f / (1 + cameraState.pathLength);
 
                     //fprintf(fp , "weight = %.6f\n" , weight);
                     
@@ -218,7 +218,7 @@ void PathReusing::runIteration(int iter)
 			{
 				if (cameraState.pathLength + 1 >= minPathLength)
 				{
-                    Real weight = 1.f / (1 << cameraState.pathLength);
+                    Real weight = 1.f / (1 + cameraState.pathLength);
 
                     //fprintf(fp , "weight = %.6f\n" , weight);
                     
@@ -227,7 +227,7 @@ void PathReusing::runIteration(int iter)
 
 					cameraSubPaths[N].lightContrib = cameraSubPaths[N].lightContrib + 
 						(cameraSubPaths[N].throughput | getDirectIllumination(cameraState , hitPos , bsdf)) * 
-						(0.5f);
+						(1.f);
 				}
 			}
 
@@ -256,7 +256,7 @@ void PathReusing::runIteration(int iter)
 					Color3 tmp = connectVertices(lightState ,
 						bsdf , hitPos , cameraState);
 
-                    Real weight = 1.f / (1 << (lightState.pathLength + cameraState.pathLength));
+                    Real weight = 1.f / (1 + (lightState.pathLength + cameraState.pathLength));
 
                     //fprintf(fp , "weight = %.6f\n" , weight);
                     
@@ -265,7 +265,7 @@ void PathReusing::runIteration(int iter)
 
 					cameraSubPaths[N].lightContrib = cameraSubPaths[N].lightContrib + 
 						(cameraSubPaths[N].throughput | lightState.throughput | tmp) * 
-						(0.5f);
+						(1.f);
 				}
 			}
 
@@ -300,7 +300,7 @@ void PathReusing::runIteration(int iter)
 		Color3 color = (cameraSubPaths[i].throughput | query.contrib) *
 			kernel;
 
-        Real weight = 0.5f;
+        Real weight = 1.f;
 
 		cameraSubPaths[i].lightContrib = cameraSubPaths[i].lightContrib +
 			color * weight;
@@ -308,8 +308,7 @@ void PathReusing::runIteration(int iter)
 
 	delete lightTree;
 
-	kernel = 1.f / (PI * radiusSqr * lightPathNum);
-	Real k2 = 1.f / cameraPathNum;
+	kernel = 1.f / (PI * radiusSqr * cameraPathNum);
 
 	std::vector<Color3> contribs;
 	contribs.resize(cameraSubPaths.size());
@@ -328,9 +327,9 @@ void PathReusing::runIteration(int iter)
 			//fprintf(fp , "%d\n" , query.mergeNum);
 
 			Color3 color = (cameraSubPaths[i].throughput | query.contrib) *
-				kernel * k2;
+				kernel;
 
-            Real weight = 0.5f;
+            Real weight = 1.f;
             
 			contribs[i] = color * weight;
 		}
@@ -347,7 +346,8 @@ void PathReusing::runIteration(int iter)
 		{
 			film->addColor(cameraSubPaths[i].rasterX , 
 				cameraSubPaths[i].rasterY , 
-				cameraSubPaths[i].lightContrib + cameraSubPaths[i].pathContrib);
+				cameraSubPaths[i].lightContrib + 
+				cameraSubPaths[i].pathContrib);
 		}
 	}
 }
