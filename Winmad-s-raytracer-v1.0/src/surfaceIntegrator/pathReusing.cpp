@@ -6,7 +6,7 @@ void PathReusing::init(char *filename , Parameters& para)
 {
 	minPathLength = 0;
 	maxPathLength = 10;
-	iterations = 1;
+	iterations = 20;
 
 	samplesPerPixel = para.SAMPLES_PER_PIXEL;
 
@@ -36,10 +36,11 @@ void PathReusing::outputImage(char *filename)
 			Color3 tmp = film->color[i][j];
 			film->color[i][j] = film->color[j][i];
 			film->color[j][i] = tmp;
-
+			/*
 			tmp = film->color[i][j];
 			fprintf(fp , "c(%d,%d)=(%.3f,%.3f,%.3f)\n" , i , j ,
 				tmp.r , tmp.g , tmp.b);
+			*/
 		}
 	}
 	film->outputImage(filename , 1.f / iterations , 2.2);
@@ -64,6 +65,14 @@ void PathReusing::runIteration(int iter)
 	cameraSubPaths.reserve(cameraPathNum);
 	cameraSubPaths.clear();
 
+	vmNormalization = 1.f / (radiusSqr * PI * lightPathNum);
+
+	Real etaVCM = (PI * radiusSqr) * lightPathNum;
+	misVcWeightFactor = mis(1.f / etaVCM);
+	misVmWeightFactor = mis(etaVCM);
+
+	Real kernel;
+
 	// generating light paths
 	for (int pathIndex = 0; pathIndex < lightPathNum; pathIndex++)
 	{
@@ -86,8 +95,15 @@ void PathReusing::runIteration(int iter)
 
             lightState.pos = hitPos;
 			lightState.bsdf = bsdf;
-			lightState.pdf *= std::abs(bsdf.cosWi()) / SQR(inter.t);
-            
+			
+			if (lightState.pathLength > 1 || lightState.isFiniteLight)
+			{
+				lightState.dVCM *= mis(SQR(inter.t));
+			}
+			lightState.dVCM /= mis(std::abs(bsdf.cosWi()));
+			lightState.dVC /= mis(std::abs(bsdf.cosWi()));
+			lightState.dVM /= mis(std::abs(bsdf.cosWi()));
+
 			if (!bsdf.isDelta)
 			{
                 lightStates.push_back(lightState);
@@ -102,12 +118,10 @@ void PathReusing::runIteration(int iter)
 					if (scene.camera.checkRaster(imagePos.x , imagePos.y))
 					{
 						Color3 res = connectToCamera(lightState , hitPos , bsdf);
-                        Real weight = 1.f / (1 + lightState.pathLength);
+                        Real weight = 1.f;
 
                         res = res * weight;
 
-                        //fprintf(fp , "weight = %.6f\n" , weight);
-                        
 						film->addColor((int)imagePos.x , (int)imagePos.y , res);
 					}
 				}
@@ -123,6 +137,10 @@ void PathReusing::runIteration(int iter)
 		lightStateIndex[pathIndex] = (int)lightStates.size();
 	}
 
+	lightTree = new KdTree<PathState>(lightStates);
+
+	kernel = 1.f / (PI * radiusSqr * lightPathNum);
+
 	// generating camera paths
 	for (int index = 0; index < cameraPathNum; index++)
 	{
@@ -132,7 +150,6 @@ void PathReusing::runIteration(int iter)
 		Vector3 screenSample = generateCameraSample(pathIndex , cameraState);
 
 		oldCameraState = cameraState;
-		oldCameraState.pdf = 1;
 		oldCameraState.throughput = Color3(1.f);
 
 		Color3 color(0);
@@ -168,7 +185,10 @@ void PathReusing::runIteration(int iter)
 			if (!bsdf.isValid())
 				break;
 
-			cameraState.pdf *= std::abs(bsdf.cosWi()) / SQR(inter.t);
+			cameraState.dVCM *= mis(SQR(inter.t));
+			cameraState.dVCM /= mis(std::abs(bsdf.cosWi()));
+			cameraState.dVC /= mis(std::abs(bsdf.cosWi()));
+			cameraState.dVM /= mis(std::abs(bsdf.cosWi()));
 
 			if (inter.matId < 0)
 			{
@@ -176,10 +196,8 @@ void PathReusing::runIteration(int iter)
 
 				if (cameraState.pathLength >= minPathLength)
 				{
-                    Real weight = 1.f / (1 + cameraState.pathLength);
+                    Real weight = 1.f;
 
-                    //fprintf(fp , "weight = %.6f\n" , weight);
-                    
 					color = color + (cameraState.throughput |
 						getLightRadiance(light , cameraState , 
 						hitPos , ray.dir)) * weight;
@@ -197,11 +215,14 @@ void PathReusing::runIteration(int iter)
 				subPath.nextPos = inter.p;
 				subPath.bsdf = BSDF(-ray.dir , inter , scene);
 				subPath.wo = dirAtOrigin;
+
+				subPath.rasterX = (int)screenSample.x;
+				subPath.rasterY = (int)screenSample.y;
+
 				if (isStart)
 				{
 					isStart = 0;
-					subPath.rasterX = (int)screenSample.x;
-					subPath.rasterY = (int)screenSample.y;
+					subPath.startFlag = 1;	
 				}
 
 				cameraSubPaths.push_back(subPath);
@@ -218,16 +239,14 @@ void PathReusing::runIteration(int iter)
 			{
 				if (cameraState.pathLength + 1 >= minPathLength)
 				{
-                    Real weight = 1.f / (1 + cameraState.pathLength);
+                    Real weight = 1.f;
 
-                    //fprintf(fp , "weight = %.6f\n" , weight);
-                    
-					color = color + (cameraState.throughput |
-						getDirectIllumination(cameraState , hitPos , bsdf)) * weight;
+					//color = color + (cameraState.throughput |
+					//	getDirectIllumination(cameraState , hitPos , bsdf)) * weight;
 
-					cameraSubPaths[N].lightContrib = cameraSubPaths[N].lightContrib + 
-						(cameraSubPaths[N].throughput | getDirectIllumination(cameraState , hitPos , bsdf)) * 
-						(1.f);
+ 					cameraSubPaths[N].lightContrib = cameraSubPaths[N].lightContrib + 
+ 						(cameraSubPaths[N].throughput | getDirectIllumination(cameraState , hitPos , bsdf)
+						* weight);
 				}
 			}
 
@@ -256,17 +275,35 @@ void PathReusing::runIteration(int iter)
 					Color3 tmp = connectVertices(lightState ,
 						bsdf , hitPos , cameraState);
 
-                    Real weight = 1.f / (1 + (lightState.pathLength + cameraState.pathLength));
+                    Real weight = 1.f;
 
-                    //fprintf(fp , "weight = %.6f\n" , weight);
-                    
-					color = color + (cameraState.throughput |
-                                     lightState.throughput | tmp) * weight;
+					//color = color + (cameraState.throughput |
+                    //                 lightState.throughput | tmp) * weight;
 
 					cameraSubPaths[N].lightContrib = cameraSubPaths[N].lightContrib + 
-						(cameraSubPaths[N].throughput | lightState.throughput | tmp) * 
-						(1.f);
+						(cameraSubPaths[N].throughput | lightState.throughput | tmp
+						* weight);
 				}
+			}
+
+			// vertex merge
+			if (!bsdf.isDelta)
+			{
+				RangeQuery query(*this , cameraSubPaths[N].nextPos , 
+					cameraSubPaths[N].bsdf , cameraState);
+
+				lightTree->searchInRadius(0 , cameraSubPaths[N].nextPos , 
+					radius , query);
+
+				//fprintf(fp , "%d\n" , query.mergeNum);
+
+				Color3 color = (cameraSubPaths[N].throughput | query.contrib) *
+					kernel;
+
+				Real weight = 1.f;
+
+				cameraSubPaths[N].lightContrib = cameraSubPaths[N].lightContrib +
+					color * weight;
 			}
 
 			if (!sampleScattering(bsdf , hitPos , cameraState))
@@ -282,41 +319,20 @@ void PathReusing::runIteration(int iter)
 		film->addColor((int)screenSample.x , (int)screenSample.y , color);
 	}
 
-	// merge
-	lightTree = new KdTree<PathState>(lightStates);
-
-	Real kernel = 1.f / (PI * radiusSqr * lightPathNum);
-
-	for (int i = 0; i < cameraSubPaths.size(); i++)
-	{
-		RangeQuery query(*this , cameraSubPaths[i].nextPos , 
-			cameraSubPaths[i].bsdf , cameraSubPaths[i]);
-		
-		lightTree->searchInRadius(0 , cameraSubPaths[i].nextPos , 
-			radius , query);
-
-		//fprintf(fp , "%d\n" , query.mergeNum);
-
-		Color3 color = (cameraSubPaths[i].throughput | query.contrib) *
-			kernel;
-
-        Real weight = 1.f;
-
-		cameraSubPaths[i].lightContrib = cameraSubPaths[i].lightContrib +
-			color * weight;
-	}
-
 	delete lightTree;
-
+	// camera path multiple merge
+	
 	kernel = 1.f / (PI * radiusSqr * cameraPathNum);
 
 	std::vector<Color3> contribs;
 	contribs.resize(cameraSubPaths.size());
 
-	for (int mergeIter = 0; mergeIter < maxPathLength; mergeIter++)
-	{
-		pathTree = new KdTree<SubPath>(cameraSubPaths);
+	int mergeIterations = maxPathLength;
 
+	pathTree = new KdTree<SubPath>(cameraSubPaths);
+
+	for (int mergeIter = 0; mergeIter < mergeIterations; mergeIter++)
+	{
 		for (int i = 0; i < cameraSubPaths.size(); i++)
 		{
 			MergeQuery query(*this , cameraSubPaths[i].nextPos ,
@@ -336,9 +352,9 @@ void PathReusing::runIteration(int iter)
 
 		for (int i = 0; i < cameraSubPaths.size(); i++)
 			cameraSubPaths[i].pathContrib = contribs[i];
-		
-		delete pathTree;
 	}
+
+	delete pathTree;
 
 	for (int i = 0; i < cameraSubPaths.size(); i++)
 	{
@@ -373,7 +389,17 @@ void PathReusing::generateLightSample(PathState& lightState)
 	lightState.pathLength = 1;
 	lightState.isFiniteLight = light->isFinite();
 
-	lightState.pdf = emissionPdf;
+	lightState.dVCM = mis(directPdf / emissionPdf);
+	if (!light->isDelta())
+	{
+		Real usedCosLight = light->isFinite() ? cosAtLight : 1.f;
+		lightState.dVC = mis(usedCosLight / emissionPdf);
+	}
+	else
+	{
+		lightState.dVC = 0.f;
+	}
+	lightState.dVM = lightState.dVC * misVcWeightFactor;
 }
 
 Color3 PathReusing::connectToCamera(PathState& lightState , 
@@ -418,7 +444,12 @@ Color3 PathReusing::connectToCamera(PathState& lightState ,
 	if (scene.occluded(hitPos , dirToCamera , camera.pos))
 		return Color3(0);
 
-	return res;
+	Real wLight = mis(cameraPdfArea / lightPathNum) *
+		(misVmWeightFactor + lightState.dVCM + lightState.dVC * mis(bsdfRevPdf));
+
+	Real weight = 1.f / (wLight + 1.f);
+
+	return res * weight;
 }
 
 bool PathReusing::sampleScattering(BSDF& bsdf , 
@@ -448,11 +479,20 @@ bool PathReusing::sampleScattering(BSDF& bsdf ,
 	// i.e. after tracing the ray, out of the procedure
 	if (sampledBSDFType & BSDF_SPECULAR)
 	{
-		pathState.pdf *= 1.f;
+		pathState.dVCM = 0.f;
+		pathState.dVC *= mis(cosWo);
+		pathState.dVM *= mis(cosWo);
 	}
 	else
 	{
-		pathState.pdf *= bsdfDirPdf;
+		pathState.dVC = mis(cosWo / bsdfDirPdf) *
+			(pathState.dVC * mis(bsdfRevPdf) + pathState.dVCM +
+			misVmWeightFactor);
+		pathState.dVM = mis(cosWo / bsdfDirPdf) *
+			(pathState.dVM * mis(bsdfRevPdf) + 
+			pathState.dVCM * misVcWeightFactor + 1.f);
+		pathState.dVCM = mis(1.f / bsdfDirPdf);
+
 		pathState.specularPath &= 0;
 	}
 
@@ -489,10 +529,12 @@ Vector3 PathReusing::generateCameraSample(const int pathIndex ,
 
 	cameraState.pathLength = 1;
 	cameraState.specularPath = 1;
-	cameraState.pdf = cameraPdf;
-
+	
     cameraState.throughput = Color3(1);
 	
+	cameraState.dVCM = mis(lightPathNum / cameraPdf);
+	cameraState.dVC = cameraState.dVM = 0.f;
+
 	return sample;
 }
 
@@ -518,13 +560,20 @@ Color3 PathReusing::getLightRadiance(AbstractLight *light ,
 	directPdfArea *= lightPickProb;
 	emissionPdf *= lightPickProb;
 	
-	return radiance;
+	Real wCamera = mis(directPdfArea) * cameraState.dVCM +
+		mis(emissionPdf) * cameraState.dVC;
+
+	Real weight = 1.f / (1.f + wCamera);
+
+	return radiance * weight;
 }
 
 Color3 PathReusing::getDirectIllumination(PathState& cameraState , 
 	const Vector3& hitPos , BSDF& bsdf)
 {
     Color3 res(0);
+
+	Real weight = 0.f;
 
 	int lightCount = scene.lights.size();
 	Real lightPickProb = 1.f / lightCount;
@@ -561,6 +610,11 @@ Color3 PathReusing::getDirectIllumination(PathState& cameraState ,
 			if (!tmp.isBlack() && !scene.occluded(hitPos , dirToLight ,
 				hitPos + dirToLight * dist))
 			{
+				Real wLight = mis(bsdfDirPdf) / mis(directPdf * lightPickProb);
+				Real wCamera = mis(emissionPdf * cosToLight / (directPdf * cosAtLight)) *
+					(cameraState.dVCM + mis(bsdfRevPdf) * cameraState.dVC);
+				weight = 1.f / (wLight + 1.f + wCamera);
+
 				if (light->isDelta())
 				{
 					res = res + tmp;
@@ -635,7 +689,7 @@ Color3 PathReusing::getDirectIllumination(PathState& cameraState ,
 		}
 	}
     
-	return res;
+	return res * weight;
 
 }
 
@@ -685,7 +739,13 @@ Color3 PathReusing::connectVertices(PathState& lightState ,
 		hitPos + dir * dist))
 		return Color3(0);
 
-	return res;
+	Real wLight = mis(cameraBsdfDirPdfArea) * 
+		(lightState.dVCM + mis(lightBsdfRevPdf) * lightState.dVC);
+	Real wCamera = mis(lightBsdfDirPdfArea) *
+		(cameraState.dVCM + mis(cameraBsdfRevPdf) * cameraState.dVC);
+	Real weight = 1.f / (wLight + 1.f + wCamera);
+
+	return res * weight;
 }
 
 Real PathReusing::mis(Real pdf)

@@ -9,11 +9,12 @@ struct PathState
 	Vector3 dir;
 	Color3 throughput;
 	BSDF bsdf;
-	Real pdf;
 
 	int pathLength : 30;
 	int specularPath : 1;
 	int isFiniteLight : 1;
+
+	Real dVCM , dVC , dVM;
 };
 
 class SubPath
@@ -24,11 +25,10 @@ public:
 	Color3 throughput;
 	Color3 lightContrib , pathContrib;
 
-	Real pdf;
-
 	Vector3 wo; // dir at origin
 	BSDF bsdf; // bsdf at nextPos
 	int rasterX , rasterY;
+	bool startFlag;
 
 	SubPath() : rasterX(-1) , rasterY(-1) {}
 
@@ -39,15 +39,16 @@ public:
 		throughput.r = curPathState.throughput.r / oldPathState.throughput.r;
 		throughput.g = curPathState.throughput.g / oldPathState.throughput.g;
 		throughput.b = curPathState.throughput.b / oldPathState.throughput.b;
-		pdf = curPathState.pdf / oldPathState.pdf;
 
 		lightContrib = pathContrib = Color3(0.f);
 		rasterX = rasterY = -1;
+
+		startFlag = 0;
 	}
 
 	bool isStart()
 	{
-		return (rasterX != -1);
+		return startFlag;
 	}
 };
 
@@ -60,13 +61,13 @@ public:
 		PathReusing& pathReusing;
 		Vector3& cameraPos;
 		BSDF& cameraBsdf;
-		SubPath& cameraSubPath;
+		PathState& cameraSubPath;
 		Color3 contrib;
 		int mergeNum;
 
 		RangeQuery(PathReusing& pathReusing , 
 			Vector3& cameraPos , BSDF& cameraBsdf ,
-			SubPath& cameraSubPath)
+			PathState& cameraSubPath)
 			: pathReusing(pathReusing) , cameraPos(cameraPos) ,
 			cameraBsdf(cameraBsdf) , cameraSubPath(cameraSubPath) ,
 			contrib(0) , mergeNum(0) {}
@@ -88,7 +89,13 @@ public:
 			cameraBsdfDirPdf *= cameraBsdf.continueProb;
 			cameraBsdfRevPdf *= lightVertex.bsdf.continueProb;
 
-			contrib = contrib + (cameraBsdfFactor | lightVertex.throughput);
+			Real wLight = lightVertex.dVCM * pathReusing.misVcWeightFactor +
+				lightVertex.dVM * pathReusing.mis(cameraBsdfDirPdf);
+			Real wCamera = cameraSubPath.dVCM * pathReusing.misVcWeightFactor +
+				cameraSubPath.dVM * pathReusing.mis(cameraBsdfRevPdf);
+			Real weight = 1.f / (wLight + 1.f + wCamera);
+
+			contrib = contrib + (cameraBsdfFactor | lightVertex.throughput) * weight;
 		}
 	};
 
@@ -132,6 +139,9 @@ public:
 	int iterations;
 	Real baseRadius;         // initial merging radius
 	Real radiusAlpha;        // radius reduction per iteration
+	Real vmNormalization;
+	Real misVcWeightFactor;
+	Real misVmWeightFactor;
 
 	std::vector<PathState> lightStates;
 	std::vector<SubPath> cameraSubPaths;

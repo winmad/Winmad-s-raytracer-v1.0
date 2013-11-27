@@ -95,6 +95,7 @@ void BidirPathTracing::runIteration(int iter)
 				lightState.dVCM *= mis(SQR(inter.t));
 			}
 			lightState.dVCM /= mis(std::abs(bsdf.cosWi()));
+			lightState.dVC /= mis(std::abs(bsdf.cosWi()));
 			
 			if (!bsdf.isDelta)
 				lightStates.push_back(lightState);
@@ -169,6 +170,7 @@ void BidirPathTracing::runIteration(int iter)
 
 			cameraState.dVCM *= mis(SQR(inter.t));
 			cameraState.dVCM /= mis(std::abs(bsdf.cosWi()));
+			cameraState.dVC /= mis(std::abs(bsdf.cosWi()));
 
 			if (inter.matId < 0)
 			{
