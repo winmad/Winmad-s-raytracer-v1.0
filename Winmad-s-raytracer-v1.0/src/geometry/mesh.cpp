@@ -19,7 +19,7 @@ void Mesh::load(const char* filename)
 		if (ch == 'v')
 		{
 			Vector3 v;
-			fscanf(file , "%lf %lf %lf\n" , &v.x , &v.y , &v.z);
+			fscanf(file , "%f %f %f\n" , &v.x , &v.y , &v.z);
 			vertices.push_back(v);
 			continue;
 		}

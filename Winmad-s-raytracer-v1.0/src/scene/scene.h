@@ -11,6 +11,7 @@
 #include "light.h"
 #include "KDtreeAccel.h"
 #include "../parameters.h"
+#include "../tinyobjloader/tiny_obj_loader.h"
 #include <vector>
 #include <map>
 

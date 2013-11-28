@@ -15,7 +15,7 @@ public:
 	Transform cameraToWorld;
 	Transform rasterToWorld;
 	Transform worldToRaster;
-	Real imagePlaneDist , xResolution , yResolution;
+	Real imagePlaneDist , xResolution , yResolution , horizontalFOV;
 
 	void setup(const Vector3& _pos , const Vector3& _forward ,
 		const Vector3& _up , Real _xResolution , Real _yResolution ,

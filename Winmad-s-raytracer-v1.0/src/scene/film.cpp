@@ -3,6 +3,8 @@
 
 void ImageFilm::addColor(int h , int w , const Color3& c)
 {
+	if (h < 0 || h >= height || w < 0 || w >= width)
+		return;
 	color[h][w] = color[h][w] + c;
 }
 

@@ -4,7 +4,7 @@ void VertexCM::init(char *filename , Parameters& para)
 {
 	minPathLength = 0;
 	maxPathLength = 10;
-	iterations = 1;
+	iterations = 5;
 
 	samplesPerPixel = para.SAMPLES_PER_PIXEL;
 	
