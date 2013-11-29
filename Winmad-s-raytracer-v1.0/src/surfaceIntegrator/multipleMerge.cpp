@@ -1,8 +1,8 @@
-#include "pathReusing.h"
+#include "multipleMerge.h"
 
-static FILE *fp = fopen("debug_pr.txt" , "w");
+static FILE *fp = fopen("debug_mm.txt" , "w");
 
-void PathReusing::init(char *filename , Parameters& para)
+void MultipleMerge::init(char *filename , Parameters& para)
 {
 	minPathLength = 0;
 	maxPathLength = 10;
@@ -21,13 +21,13 @@ void PathReusing::init(char *filename , Parameters& para)
 	film = new ImageFilm(height , width);
 }
 
-void PathReusing::render()
+void MultipleMerge::render()
 {
 	for (int iter = 0; iter < iterations; iter++)
 		runIteration(iter);
 }
 
-void PathReusing::outputImage(char *filename)
+void MultipleMerge::outputImage(char *filename)
 {
 	for (int i = 0; i < height; i++)
 	{
@@ -43,41 +43,38 @@ void PathReusing::outputImage(char *filename)
 			*/
 		}
 	}
-	film->outputImage(filename , 1.f / iterations , 2.2);
+	film->outputImage(filename , 1.f / 8.f / iterations , 2.2);
 }
 
-void PathReusing::runIteration(int iter)
+void MultipleMerge::runIteration(int iter)
 {
 	lightPathNum = height * width;
 	cameraPathNum = lightPathNum;
 
-	Real radius = baseRadius;
+	radius = baseRadius;
 	radius /= std::pow((Real)(iter + 1) , 0.5f * (1.f - radiusAlpha));
 	radius = std::max(radius , EPS);
 	Real radiusSqr = SQR(radius);
 
-	lightStateIndex.resize(lightPathNum);
-	memset(&lightStateIndex[0] , 0 , lightStateIndex.size() * sizeof(int));
+	lightSubPaths.clear();
 
-	lightStates.reserve(lightPathNum);
-	lightStates.clear();
+	lightSubPathIndex.clear();
 
-	cameraSubPaths.reserve(cameraPathNum);
-	cameraSubPaths.clear();
-
-	vmNormalization = 1.f / (radiusSqr * PI * lightPathNum);
-
-	Real etaVCM = (PI * radiusSqr) * lightPathNum;
-	misVcWeightFactor = mis(1.f / etaVCM);
-	misVmWeightFactor = mis(etaVCM);
-
-	Real kernel;
+	mergeKernel = 1.f / (PI * radiusSqr * lightPathNum);
 
 	// generating light paths
 	for (int pathIndex = 0; pathIndex < lightPathNum; pathIndex++)
 	{
-		PathState lightState;
+		MMPathState lightState , oldLightState;
 		generateLightSample(lightState);
+
+		oldLightState = lightState;
+		oldLightState.throughput = Color3(1.f);
+		oldLightState.culmPdf = oldLightState.curPdf = 1.f;
+
+		Vector3 dirAtOrigin = lightState.dir;
+		bool isNewSubPath = 0;
+		bool isStart = 1;
 
 		for (;; lightState.pathLength++)
 		{
@@ -93,20 +90,37 @@ void PathReusing::runIteration(int iter)
 			if (!bsdf.isValid())
 				break;
 
-            lightState.pos = hitPos;
+			lightState.pos = hitPos;
 			lightState.bsdf = bsdf;
 			
-			if (lightState.pathLength > 1 || lightState.isFiniteLight)
-			{
-				lightState.dVCM *= mis(SQR(inter.t));
-			}
-			lightState.dVCM /= mis(std::abs(bsdf.cosWi()));
-			lightState.dVC /= mis(std::abs(bsdf.cosWi()));
-			lightState.dVM /= mis(std::abs(bsdf.cosWi()));
+			lightState.curPdf = pdfWtoA(lightState.curPdf , inter.t , 
+				std::abs(bsdf.cosWi())); // another part
+			lightState.culmPdf *= lightState.curPdf;
 
 			if (!bsdf.isDelta)
 			{
-                lightStates.push_back(lightState);
+                // store subpath data
+				LightSubPath subPath(oldLightState , lightState);
+				
+				subPath.wo = dirAtOrigin;
+				
+				if (isStart)
+				{
+					isStart = 0;
+					subPath.contrib = lightState.throughput;	
+					subPath.lastPdf = 1.f;
+				}
+				else
+				{
+					subPath.lastPdf = lightSubPaths[lightSubPaths.size() - 1].curPdf;
+				}
+
+				lightSubPaths.push_back(subPath);
+
+				lightState.culmPdf = 1.f;
+				oldLightState = lightState;
+				
+				isNewSubPath = 1;
 			}
 
 			// connect to camera
@@ -118,9 +132,6 @@ void PathReusing::runIteration(int iter)
 					if (scene.camera.checkRaster(imagePos.x , imagePos.y))
 					{
 						Color3 res = connectToCamera(lightState , hitPos , bsdf);
-                        Real weight = 1.f;
-
-                        res = res * weight;
 
 						film->addColor((int)imagePos.x , (int)imagePos.y , res);
 					}
@@ -132,31 +143,55 @@ void PathReusing::runIteration(int iter)
 
 			if (!sampleScattering(bsdf , hitPos , lightState))
 				break;
+				
+			if (isNewSubPath)
+			{
+				isNewSubPath = 0;
+				dirAtOrigin = cameraState.dir;
+			}
 		}
-
-		lightStateIndex[pathIndex] = (int)lightStates.size();
+		lightSubPathIndex[pathIndex] = (int)lightSubPaths.size();
 	}
 
-	lightTree = new KdTree<PathState>(lightStates);
+	// light path multiple merge
+	lightTree = new KdTree<LightSubPath>(lightSubPaths);
 
-	kernel = 1.f / (PI * radiusSqr * lightPathNum);
+	std::vector<Color3> contribs;
+	contribs.resize(lightSubPaths.size());
+
+	int mergeIterations = maxPathLength;
+
+	for (int mergeIter = 0; mergeIter < mergeIterations; mergeIter++)
+	{
+		for (int i = 0; i < lightSubPaths.size(); i++)
+		{
+			MergeQuery query(*this , lightSubPaths[i]);
+
+			lightTree->searchInRadius(0 , query.lightSubPath.origin , 
+				radius , query);
+
+			//fprintf(fp , "%d\n" , query.mergeNum);
+
+			Color3 color = (lightSubPaths[i].throughput | query.contrib);
+
+			contribs[i] = color;
+		}
+
+		for (int i = 0; i < lightSubPaths.size(); i++)
+			lightSubPaths[i].contrib = contribs[i];
+	}
+
+	delete lightTree;
 
 	// generating camera paths
 	for (int index = 0; index < cameraPathNum; index++)
 	{
 		int pathIndex = index % (height * width);
 
-		PathState cameraState , oldCameraState;
+		MMPathState cameraState;
 		Vector3 screenSample = generateCameraSample(pathIndex , cameraState);
 
-		oldCameraState = cameraState;
-		oldCameraState.throughput = Color3(1.f);
-
 		Color3 color(0);
-
-		Vector3 dirAtOrigin = cameraState.dir;
-		bool isNewSubPath = 0;
-		bool isStart = 1;
 
 		for (;; cameraState.pathLength++)
 		{
@@ -185,11 +220,9 @@ void PathReusing::runIteration(int iter)
 			if (!bsdf.isValid())
 				break;
 
-			cameraState.pos = hitPos;
-			cameraState.dVCM *= mis(SQR(inter.t));
-			cameraState.dVCM /= mis(std::abs(bsdf.cosWi()));
-			cameraState.dVC /= mis(std::abs(bsdf.cosWi()));
-			cameraState.dVM /= mis(std::abs(bsdf.cosWi()));
+			cameraState.curPdf = pdfWtoA(cameraState.curPdf , inter.t , 
+				std::abs(bsdf.cosWi())); // another part
+			cameraState.culmPdf *= cameraState.curPdf;
 
 			if (inter.matId < 0)
 			{
@@ -209,32 +242,6 @@ void PathReusing::runIteration(int iter)
 			if (cameraState.pathLength >= maxPathLength)
 				break;
 
-			// store path state
-			if (!bsdf.isDelta)
-			{
-				SubPath subPath(oldCameraState , cameraState);
-				subPath.nextPos = inter.p;
-				subPath.bsdf = BSDF(-ray.dir , inter , scene);
-				subPath.wo = dirAtOrigin;
-
-				subPath.rasterX = (int)screenSample.x;
-				subPath.rasterY = (int)screenSample.y;
-
-				if (isStart)
-				{
-					isStart = 0;
-					subPath.startFlag = 1;	
-				}
-
-				cameraSubPaths.push_back(subPath);
-				
-				oldCameraState = cameraState;
-				oldCameraState.origin = inter.p;
-				
-				isNewSubPath = 1;	
-			}
-
-			int N = (int)cameraSubPaths.size() - 1;
 			// vertex connection: connect to light source
 			if (!bsdf.isDelta)
 			{
@@ -319,57 +326,9 @@ void PathReusing::runIteration(int iter)
 
 		film->addColor((int)screenSample.x , (int)screenSample.y , color);
 	}
-
-	delete lightTree;
-	// camera path multiple merge
-	
-	kernel = 1.f / (PI * radiusSqr * cameraPathNum);
-
-	std::vector<Color3> contribs;
-	contribs.resize(cameraSubPaths.size());
-
-	int mergeIterations = maxPathLength;
-
-	pathTree = new KdTree<SubPath>(cameraSubPaths);
-
-	for (int mergeIter = 0; mergeIter < mergeIterations; mergeIter++)
-	{
-		for (int i = 0; i < cameraSubPaths.size(); i++)
-		{
-			MergeQuery query(*this , cameraSubPaths[i].nextPos ,
-				cameraSubPaths[i]);
-
-			pathTree->searchInRadius(0 , query.pathEnd , radius , query);
-
-			//fprintf(fp , "%d\n" , query.mergeNum);
-
-			Color3 color = (cameraSubPaths[i].throughput | query.contrib) *
-				kernel;
-
-            Real weight = 1.f;
-            
-			contribs[i] = color * weight;
-		}
-
-		for (int i = 0; i < cameraSubPaths.size(); i++)
-			cameraSubPaths[i].pathContrib = contribs[i];
-	}
-
-	delete pathTree;
-
-	for (int i = 0; i < cameraSubPaths.size(); i++)
-	{
-		if (cameraSubPaths[i].isStart())
-		{
-			film->addColor(cameraSubPaths[i].rasterX , 
-				cameraSubPaths[i].rasterY , 
-				cameraSubPaths[i].lightContrib + 
-				cameraSubPaths[i].pathContrib);
-		}
-	}
 }
 
-void PathReusing::generateLightSample(PathState& lightState)
+void MultipleMerge::generateLightSample(MMPathState& lightState)
 {
 	int lightNum = scene.lights.size();
 	Real lightPickProb = 1.f / lightNum;
@@ -390,20 +349,11 @@ void PathReusing::generateLightSample(PathState& lightState)
 	lightState.pathLength = 1;
 	lightState.isFiniteLight = light->isFinite();
 
-	lightState.dVCM = mis(directPdf / emissionPdf);
-	if (!light->isDelta())
-	{
-		Real usedCosLight = light->isFinite() ? cosAtLight : 1.f;
-		lightState.dVC = mis(usedCosLight / emissionPdf);
-	}
-	else
-	{
-		lightState.dVC = 0.f;
-	}
-	lightState.dVM = lightState.dVC * misVcWeightFactor;
+	lightState.culmPdf = 1.f;
+	lightState.curPdf = emissionPdf; // one part
 }
 
-Color3 PathReusing::connectToCamera(PathState& lightState , 
+Color3 MultipleMerge::connectToCamera(MMPathState& lightState , 
 	const Vector3& hitPos , BSDF& bsdf)
 {
 	Color3 res(0);
@@ -445,16 +395,11 @@ Color3 PathReusing::connectToCamera(PathState& lightState ,
 	if (scene.occluded(hitPos , dirToCamera , camera.pos))
 		return Color3(0);
 
-	Real wLight = mis(cameraPdfArea / lightPathNum) *
-		(misVmWeightFactor + lightState.dVCM + lightState.dVC * mis(bsdfRevPdf));
-
-	Real weight = 1.f / (wLight + 1.f);
-
-	return res * weight;
+	return res;
 }
 
-bool PathReusing::sampleScattering(BSDF& bsdf , 
-	const Vector3& hitPos , PathState& pathState)
+bool MultipleMerge::sampleScattering(BSDF& bsdf , 
+	const Vector3& hitPos , MMPathState& pathState)
 {
 	Real bsdfDirPdf , cosWo;
 	int sampledBSDFType;
@@ -480,20 +425,11 @@ bool PathReusing::sampleScattering(BSDF& bsdf ,
 	// i.e. after tracing the ray, out of the procedure
 	if (sampledBSDFType & BSDF_SPECULAR)
 	{
-		pathState.dVCM = 0.f;
-		pathState.dVC *= mis(cosWo);
-		pathState.dVM *= mis(cosWo);
+		pathState.curPdf = bsdfDirPdf;
 	}
 	else
 	{
-		pathState.dVC = mis(cosWo / bsdfDirPdf) *
-			(pathState.dVC * mis(bsdfRevPdf) + pathState.dVCM +
-			misVmWeightFactor);
-		pathState.dVM = mis(cosWo / bsdfDirPdf) *
-			(pathState.dVM * mis(bsdfRevPdf) + 
-			pathState.dVCM * misVcWeightFactor + 1.f);
-		pathState.dVCM = mis(1.f / bsdfDirPdf);
-
+		pathState.curPdf = bsdfDirPdf;
 		pathState.specularPath &= 0;
 	}
 
@@ -504,8 +440,8 @@ bool PathReusing::sampleScattering(BSDF& bsdf ,
 	return 1;
 }
 
-Vector3 PathReusing::generateCameraSample(const int pathIndex , 
-	PathState& cameraState)
+Vector3 MultipleMerge::generateCameraSample(const int pathIndex , 
+	MMPathState& cameraState)
 {
 	Camera& camera = scene.camera;
 	int y = pathIndex % width;
@@ -532,9 +468,9 @@ Vector3 PathReusing::generateCameraSample(const int pathIndex ,
 	cameraState.specularPath = 1;
 	
     cameraState.throughput = Color3(1);
-	
-	cameraState.dVCM = mis(lightPathNum / cameraPdf);
-	cameraState.dVC = cameraState.dVM = 0.f;
+
+	cameraState.curPdf = cameraPdf;
+	cameraState.culmPdf = 1.f;
 
 	return sample;
 }
@@ -747,9 +683,4 @@ Color3 PathReusing::connectVertices(PathState& lightState ,
 	Real weight = 1.f / (wLight + 1.f + wCamera);
 
 	return res * weight;
-}
-
-Real PathReusing::mis(Real pdf)
-{
-	return pdf * pdf;
 }

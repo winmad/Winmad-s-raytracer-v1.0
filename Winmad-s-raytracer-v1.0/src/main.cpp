@@ -7,6 +7,7 @@
 #include "surfaceIntegrator/vertexcm.h"
 #include "surfaceIntegrator/pathReusing.h"
 #include "surfaceIntegrator/bidirPathTracing.h"
+//#include "surfaceIntegrator/multipleMerge.h"
 #include <opencv2/opencv.hpp>
 #include "tinyxml/tinyxml.h"
 
@@ -18,6 +19,7 @@ PhotonIntegrator photonIntegrator;
 VertexCM vertexcmIntegrator;
 PathReusing pathReusing;
 BidirPathTracing bidirPathTracing;
+//MultipleMerge multipleMerge;
 
 int main(int argc , char* argv[])
 {
@@ -58,18 +60,16 @@ int main(int argc , char* argv[])
         bidirPathTracing.init(argv[1] , para);
         bidirPathTracing.render();
         bidirPathTracing.outputImage(argv[2]);
-    }
-	/*
-	else if (!strcmp(argv[3] , "-igi"))
+    }/*
+	else if (!strcmp(argv[3] , "-mm"))
 	{
-		igiIntegrator.init(argv[1] , para);
-		igiIntegrator.generateVirtualLights();
-		igiIntegrator.render(argv[2]);
-	}
+		multipleMerge.init(argv[1] , para);
+		multipleMerge.render();
+		multipleMerge.outputImage(argv[2]);
+	}*/
 	else
 	{
 		printf("error!\n");
 	}
-	*/
 	return 0;
 }

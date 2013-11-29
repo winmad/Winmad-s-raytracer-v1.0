@@ -34,7 +34,7 @@ public:
 
 	SubPath(PathState& oldPathState , PathState& curPathState)
 	{
-		pos = oldPathState.origin;
+		pos = oldPathState.pos;
 
 		throughput.r = curPathState.throughput.r / oldPathState.throughput.r;
 		throughput.g = curPathState.throughput.g / oldPathState.throughput.g;

@@ -4,7 +4,7 @@ void VertexCM::init(char *filename , Parameters& para)
 {
 	minPathLength = 0;
 	maxPathLength = 10;
-	iterations = 5;
+	iterations = 1;
 
 	samplesPerPixel = para.SAMPLES_PER_PIXEL;
 	
@@ -39,14 +39,14 @@ void VertexCM::outputImage(char *filename)
 			film->color[j][i] = tmp;
 		}
 	}
-	film->outputImage(filename , 1.f / iterations , 2.2);
+	film->outputImage(filename , 1.f / 16.f / iterations , 2.2);
 }
 
 void VertexCM::runIteration(int iter)
 {
-	int pathNum = height * width;
+	int pathNum = height * width * 16;
 	screenPixelNum = (Real)(height * width);
-	lightSubPathNum = (Real)(height * width);
+	lightSubPathNum = pathNum;
 
 	Real radius = baseRadius;
 	radius /= std::pow((Real)(iter + 1) , 0.5f * (1.f - radiusAlpha));
@@ -141,8 +141,10 @@ void VertexCM::runIteration(int iter)
 	////////////////////////////////////////////////////////////
 	// generate camera paths
 	////////////////////////////////////////////////////////////
-	for (int pathIndex = 0; pathIndex < pathNum; pathIndex++)
+	for (int index = 0; index < pathNum; index++)
 	{
+		int pathIndex = index % (height * width);
+
 		SubPathState cameraState;
 		Vector3 screenSample = generateCameraSample(pathIndex , cameraState);
 		Color3 color(0);
