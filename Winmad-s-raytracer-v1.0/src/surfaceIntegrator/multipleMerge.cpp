@@ -6,7 +6,7 @@ void MultipleMerge::init(char *filename , Parameters& para)
 {
 	minPathLength = 0;
 	maxPathLength = 10;
-	iterations = 1;
+	iterations = 20;
 
 	samplesPerPixel = para.SAMPLES_PER_PIXEL;
 
@@ -150,7 +150,7 @@ void MultipleMerge::runIteration(int iter)
 				dirAtOrigin = lightState.dir;
 			}
 		}
-		lightSubPathIndex[pathIndex] = (int)lightSubPaths.size();
+		lightSubPathIndex.push_back((int)lightSubPaths.size());
 	}
 
 	// light path multiple merge
@@ -180,8 +180,6 @@ void MultipleMerge::runIteration(int iter)
 		for (int i = 0; i < lightSubPaths.size(); i++)
 			lightSubPaths[i].contrib = contribs[i];
 	}
-
-	delete lightTree;
 
 	// generating camera paths
 	for (int index = 0; index < cameraPathNum; index++)
@@ -296,6 +294,8 @@ void MultipleMerge::runIteration(int iter)
 
 		film->addColor((int)screenSample.x , (int)screenSample.y , color);
 	}
+
+    delete lightTree;
 }
 
 void MultipleMerge::generateLightSample(MMPathState& lightState)

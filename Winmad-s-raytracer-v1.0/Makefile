@@ -19,7 +19,7 @@ CXXFLAGS += -O3
 #CXXFLAGS += -pg
 CXXFLAGS += #$(DEFINES)
 CXXFLAGS += -std=c++0x
-CXXFLAGS += -Wall -Wextra 
+#CXXFLAGS += -Wall -Wextra 
 CXXFLAGS += $(INCLUDE_DIR)
 CXXFLAGS += $(shell pkg-config --libs --cflags opencv)
 #CXXFLAGS += -pthread
