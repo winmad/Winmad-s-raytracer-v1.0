@@ -92,32 +92,32 @@
 	</sphere>
 	
 	<object>
-		<file_path path="E:\\Winmad\\Winmad-s-raytracer-v1.0\\Winmad-s-raytracer-v1.0\\ObjFiles\\cbox_back.obj"/>
+		<file_path path="/home/winmad/Winmad-s-raytracer-v1.0/Winmad-s-raytracer-v1.0/ObjFiles/cbox_back.obj"/>
 		<matid matid="7"/>
 	</object>
 	
 	<object>
-		<file_path path="E:\\Winmad\\Winmad-s-raytracer-v1.0\\Winmad-s-raytracer-v1.0\\ObjFiles\\cbox_ceiling.obj"/>
+		<file_path path="/home/winmad/Winmad-s-raytracer-v1.0/Winmad-s-raytracer-v1.0/ObjFiles/cbox_ceiling.obj"/>
 		<matid matid="4"/>
 	</object>
 	
 	<object>
-		<file_path path="E:\\Winmad\\Winmad-s-raytracer-v1.0\\Winmad-s-raytracer-v1.0\\ObjFiles\\cbox_floor.obj"/>
+		<file_path path="/home/winmad/Winmad-s-raytracer-v1.0/Winmad-s-raytracer-v1.0/ObjFiles/cbox_floor.obj"/>
 		<matid matid="1"/>
 	</object>
 	
 	<object>
-		<file_path path="E:\\Winmad\\Winmad-s-raytracer-v1.0\\Winmad-s-raytracer-v1.0\\ObjFiles\\cbox_greenwall.obj"/>
+		<file_path path="/home/winmad/Winmad-s-raytracer-v1.0/Winmad-s-raytracer-v1.0/ObjFiles/cbox_greenwall.obj"/>
 		<matid matid="2"/>
 	</object>
 
 	<object>
-		<file_path path="E:\\Winmad\\Winmad-s-raytracer-v1.0\\Winmad-s-raytracer-v1.0\\ObjFiles\\cbox_redwall.obj"/>
+		<file_path path="/home/winmad/Winmad-s-raytracer-v1.0/Winmad-s-raytracer-v1.0/ObjFiles/cbox_redwall.obj"/>
 		<matid matid="3"/>
 	</object>
 	
 	<area_light>
-		<file_path path="E:\\Winmad\\Winmad-s-raytracer-v1.0\\Winmad-s-raytracer-v1.0\\ObjFiles\\cbox_luminaire.obj"/>
+		<file_path path="/home/winmad/Winmad-s-raytracer-v1.0/Winmad-s-raytracer-v1.0/ObjFiles/cbox_luminaire.obj"/>
 		<intensity r="25.033298956" g="25.033298956" b="25.033298956"/>
 	</area_light>
 </scene>

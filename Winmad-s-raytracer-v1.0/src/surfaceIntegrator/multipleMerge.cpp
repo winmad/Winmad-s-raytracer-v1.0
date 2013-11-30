@@ -43,7 +43,7 @@ void MultipleMerge::outputImage(char *filename)
 			*/
 		}
 	}
-	film->outputImage(filename , 1.f / 8.f / iterations , 2.2);
+	film->outputImage(filename , 1.f / iterations , 2.2);
 }
 
 void MultipleMerge::runIteration(int iter)
@@ -147,7 +147,7 @@ void MultipleMerge::runIteration(int iter)
 			if (isNewSubPath)
 			{
 				isNewSubPath = 0;
-				dirAtOrigin = cameraState.dir;
+				dirAtOrigin = lightState.dir;
 			}
 		}
 		lightSubPathIndex[pathIndex] = (int)lightSubPaths.size();
@@ -230,11 +230,9 @@ void MultipleMerge::runIteration(int iter)
 
 				if (cameraState.pathLength >= minPathLength)
 				{
-                    Real weight = 1.f;
-
-					color = color + (cameraState.throughput |
+                    color = color + (cameraState.throughput |
 						getLightRadiance(light , cameraState , 
-						hitPos , ray.dir)) * weight;
+						hitPos , ray.dir));
 				}
 				break;
 			}
@@ -247,15 +245,9 @@ void MultipleMerge::runIteration(int iter)
 			{
 				if (cameraState.pathLength + 1 >= minPathLength)
 				{
-                    Real weight = 1.f;
-
-					//color = color + (cameraState.throughput |
-					//	getDirectIllumination(cameraState , hitPos , bsdf)) * weight;
-
- 					cameraSubPaths[N].lightContrib = cameraSubPaths[N].lightContrib + 
- 						(cameraSubPaths[N].throughput | getDirectIllumination(cameraState , hitPos , bsdf)
-						* weight);
-				}
+                    color = color + (cameraState.throughput |
+						getDirectIllumination(cameraState , hitPos , bsdf));
+                }
 			}
 
 			// vertex connection: connect to light vertices
@@ -265,63 +257,41 @@ void MultipleMerge::runIteration(int iter)
 				if (pathIndex == 0)
 					st = 0;
 				else
-					st = lightStateIndex[pathIndex - 1];
-				ed = lightStateIndex[pathIndex];
+					st = lightSubPathIndex[pathIndex - 1];
+				ed = lightSubPathIndex[pathIndex];
 
 				for (int i = st; i < ed; i++)
 				{
-					PathState& lightState = lightStates[i];
-
-					if (lightState.pathLength + 1 + 
-						cameraState.pathLength < minPathLength)
-						continue;
-
-					if (lightState.pathLength + 1 +
-						cameraState.pathLength > maxPathLength)
-						break;
-
-					Color3 tmp = connectVertices(lightState ,
+					LightSubPath& lightSubPath = lightSubPaths[i];
+                    
+					Color3 tmp = connectVertices(lightSubPath ,
 						bsdf , hitPos , cameraState);
 
-                    Real weight = 1.f;
-
-					//color = color + (cameraState.throughput |
-                    //                 lightState.throughput | tmp) * weight;
-
-					cameraSubPaths[N].lightContrib = cameraSubPaths[N].lightContrib + 
-						(cameraSubPaths[N].throughput | lightState.throughput | tmp
-						* weight);
+					color = color + (cameraState.throughput |
+                                     lightSubPath.contrib | tmp);
 				}
 			}
 
 			// vertex merge
 			if (!bsdf.isDelta)
 			{
-				RangeQuery query(*this , cameraSubPaths[N].nextPos , 
-					cameraSubPaths[N].bsdf , cameraState);
+				GatherQuery query(*this , cameraState);
 
-				lightTree->searchInRadius(0 , cameraSubPaths[N].nextPos , 
+				lightTree->searchInRadius(0 , cameraState.pos , 
 					radius , query);
 
 				//fprintf(fp , "%d\n" , query.mergeNum);
 
-				Color3 color = (cameraSubPaths[N].throughput | query.contrib) *
-					kernel;
-
-				Real weight = 1.f;
-
-				cameraSubPaths[N].lightContrib = cameraSubPaths[N].lightContrib +
-					color * weight;
+				Color3 color = color + (cameraState.throughput | query.contrib);
 			}
+
+            if (!bsdf.isDelta)
+            {
+                cameraState.culmPdf = 1.f;
+            }
 
 			if (!sampleScattering(bsdf , hitPos , cameraState))
 				break;
-
-			if (isNewSubPath)
-			{
-				isNewSubPath = 0;
-				dirAtOrigin = cameraState.dir;
-			}
 		}
 
 		film->addColor((int)screenSample.x , (int)screenSample.y , color);
@@ -395,7 +365,10 @@ Color3 MultipleMerge::connectToCamera(MMPathState& lightState ,
 	if (scene.occluded(hitPos , dirToCamera , camera.pos))
 		return Color3(0);
 
-	return res;
+    Real glossyIndex = bsdf.glossyIndex;
+    Real weightFactor = 1.f / (1.f + mergeFactor(glossyIndex));
+    
+	return res * weightFactor;
 }
 
 bool MultipleMerge::sampleScattering(BSDF& bsdf , 
@@ -475,8 +448,8 @@ Vector3 MultipleMerge::generateCameraSample(const int pathIndex ,
 	return sample;
 }
 
-Color3 PathReusing::getLightRadiance(AbstractLight *light , 
-	PathState& cameraState , const Vector3& hitPos , 
+Color3 MultipleMerge::getLightRadiance(AbstractLight *light , 
+	MMPathState& cameraState , const Vector3& hitPos , 
 	const Vector3& rayDir)
 {
 	int lightCount = scene.lights.size();
@@ -497,20 +470,15 @@ Color3 PathReusing::getLightRadiance(AbstractLight *light ,
 	directPdfArea *= lightPickProb;
 	emissionPdf *= lightPickProb;
 	
-	Real wCamera = mis(directPdfArea) * cameraState.dVCM +
-		mis(emissionPdf) * cameraState.dVC;
-
-	Real weight = 1.f / (1.f + wCamera);
-
-	return radiance * weight;
+	return radiance;
 }
 
-Color3 PathReusing::getDirectIllumination(PathState& cameraState , 
+Color3 MultipleMerge::getDirectIllumination(MMPathState& cameraState , 
 	const Vector3& hitPos , BSDF& bsdf)
 {
     Color3 res(0);
 
-	Real weight = 0.f;
+	Real weightFactor = 0.f;
 
 	int lightCount = scene.lights.size();
 	Real lightPickProb = 1.f / lightCount;
@@ -547,11 +515,6 @@ Color3 PathReusing::getDirectIllumination(PathState& cameraState ,
 			if (!tmp.isBlack() && !scene.occluded(hitPos , dirToLight ,
 				hitPos + dirToLight * dist))
 			{
-				Real wLight = mis(bsdfDirPdf) / mis(directPdf * lightPickProb);
-				Real wCamera = mis(emissionPdf * cosToLight / (directPdf * cosAtLight)) *
-					(cameraState.dVCM + mis(bsdfRevPdf) * cameraState.dVC);
-				weight = 1.f / (wLight + 1.f + wCamera);
-
 				if (light->isDelta())
 				{
 					res = res + tmp;
@@ -574,7 +537,7 @@ Color3 PathReusing::getDirectIllumination(PathState& cameraState ,
 
 		if (!bsdfFactor.isBlack() && directPdf > 0)
 		{
-			Real weight = 1.f;
+			Real _weight = 1.f;
 
 			Real lightPdf;
 			if (!(sampledBSDFType & BSDF_SPECULAR))
@@ -585,7 +548,7 @@ Color3 PathReusing::getDirectIllumination(PathState& cameraState ,
 				if (cmp(lightPdf) == 0)
 					return res;
 
-				weight = mis(directPdf) /
+				_weight = mis(directPdf) /
 					(mis(directPdf) + mis(lightPdf));
 			}
 
@@ -621,20 +584,22 @@ Color3 PathReusing::getDirectIllumination(PathState& cameraState ,
 			{
 				tmp = (illu | bsdfFactor) * cosAtSurface /
 					(directPdf);
-				res = res + tmp * weight;
+				res = res + tmp * _weight;
 			}
 		}
 	}
-    
-	return res * weight;
+
+    Real glossyIndex = bsdf.glossyIndex;
+    weightFactor = 1.f / (1.f + mergeFactor(glossyIndex));
+	return res * weightFactor;
 
 }
 
-Color3 PathReusing::connectVertices(PathState& lightState , 
+Color3 MultipleMerge::connectVertices(LightSubPath& lightSubPath , 
 	BSDF& cameraBsdf , const Vector3& hitPos , 
-	PathState& cameraState)
+	MMPathState& cameraState)
 {
-	Vector3 dir = lightState.pos - hitPos;
+	Vector3 dir = lightSubPath.pos - hitPos;
 	Real dist2 = dir.sqrLength();
 	Real dist = std::sqrt(dist2);
 	dir = dir / dist;
@@ -653,13 +618,13 @@ Color3 PathReusing::connectVertices(PathState& lightState ,
 	cameraBsdfRevPdf *= cameraContProb;
 
 	Real cosAtLight , lightBsdfDirPdf , lightBsdfRevPdf;
-	Color3 lightBsdfFactor = lightState.bsdf.f(scene , -dir , cosAtLight ,
+	Color3 lightBsdfFactor = lightSubPath.bsdf.f(scene , -dir , cosAtLight ,
 		&lightBsdfDirPdf , &lightBsdfRevPdf);
 
 	if (lightBsdfFactor.isBlack())
 		return res;
 
-	Real lightContProb = lightState.bsdf.continueProb;
+	Real lightContProb = lightSubPath.bsdf.continueProb;
 	lightBsdfDirPdf *= lightContProb;
 	lightBsdfRevPdf *= lightContProb;
 
@@ -676,11 +641,5 @@ Color3 PathReusing::connectVertices(PathState& lightState ,
 		hitPos + dir * dist))
 		return Color3(0);
 
-	Real wLight = mis(cameraBsdfDirPdfArea) * 
-		(lightState.dVCM + mis(lightBsdfRevPdf) * lightState.dVC);
-	Real wCamera = mis(lightBsdfDirPdfArea) *
-		(cameraState.dVCM + mis(cameraBsdfRevPdf) * cameraState.dVC);
-	Real weight = 1.f / (wLight + 1.f + wCamera);
-
-	return res * weight;
+	return res;
 }

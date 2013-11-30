@@ -42,6 +42,8 @@ public:
 	Real continueProb; // used for Russian roulette
 
 	Real fresnelReflect; // Fresnel reflection coefficient
+	
+	Real glossyIndex;
 
 	struct ComponentProb
 	{
@@ -65,6 +67,7 @@ public:
 		const Scene& scene)
 	{
 		matId = 0;
+		glossyIndex = 0;
 		localFrame.buildFromZ(inter.n);
 		wiLocal = localFrame.worldToLocal(wi);
 		wiLocal.normalize();
@@ -76,6 +79,7 @@ public:
 		{
 			const Material& mat = scene.materials[inter.matId];
 			calcComponentProb(mat , componentProb);
+			glossyIndex = albedoGlossy(mat);
 		}
 
 		isDelta = (cmp(componentProb.diffuseProb) == 0 &&
@@ -98,7 +102,7 @@ public:
 	{
 		return localFrame.localToWorld(wiLocal);
 	}
-
+	
 	// Albedo methods, to calculate prob of different components
 	Real albedoDiffuse(const Material& mat);
 	Real albedoGlossy(const Material& mat);

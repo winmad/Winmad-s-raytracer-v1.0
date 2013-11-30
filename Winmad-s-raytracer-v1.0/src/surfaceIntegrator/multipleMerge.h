@@ -29,7 +29,9 @@ public:
 	BSDF bsdf; // bsdf at nextPos
 
 	Real lastPdf , curPdf;
-	
+
+    LightSubPath() {}
+    
 	LightSubPath(MMPathState& oldPathState , MMPathState& curPathState)
 	{	
 		origin = oldPathState.pos;
@@ -54,26 +56,22 @@ public:
 	{
 	public:
 		MultipleMerge& multipleMerge;
-		Vector3& cameraPos;
-		BSDF& cameraBsdf;
 		MMPathState& cameraSubPath;
 		Color3 contrib;
 		int mergeNum;
 
-		GatherQuery(MultipleMerge& multipleMerge , 
-			Vector3& cameraPos , BSDF& cameraBsdf ,
+		GatherQuery(MultipleMerge& multipleMerge ,
 			MMPathState& cameraSubPath)
-			: multipleMerge(multipleMerge) , cameraPos(cameraPos) ,
-			cameraBsdf(cameraBsdf) , cameraSubPath(cameraSubPath) ,
+			: multipleMerge(multipleMerge) , cameraSubPath(cameraSubPath) ,
 			contrib(0) , mergeNum(0) {}
 
-		void process(MMPathState& lightVertex)
+		void process(LightSubPath& lightSubPath)
 		{
-			Vector3 lightDir = lightVertex.bsdf.wiWorld();
+			Vector3 lightDir = lightSubPath.bsdf.wiWorld();
 
 			Real cosCamera , cameraBsdfDirPdf , cameraBsdfRevPdf;
 
-			Color3 cameraBsdfFactor = cameraBsdf.f(multipleMerge.scene , 
+			Color3 cameraBsdfFactor = cameraSubPath.bsdf.f(multipleMerge.scene , 
 				lightDir , cosCamera , &cameraBsdfDirPdf , &cameraBsdfRevPdf);
 
 			if (cameraBsdfFactor.isBlack())
@@ -81,10 +79,19 @@ public:
 
 			mergeNum++;
 
-			cameraBsdfDirPdf *= cameraBsdf.continueProb;
-			cameraBsdfRevPdf *= lightVertex.bsdf.continueProb;
+			cameraBsdfDirPdf *= cameraSubPath.bsdf.continueProb;
+			cameraBsdfRevPdf *= lightSubPath.bsdf.continueProb;
+            
+			Real weightFactor = 0.f;
 
-			contrib = contrib + (cameraBsdfFactor | lightVertex.throughput);
+			Real glossyIndex = cameraSubPath.bsdf.glossyIndex;
+
+            weightFactor = multipleMerge.mergeFactor(glossyIndex)
+					/ (1.f + multipleMerge.mergeFactor(glossyIndex));
+
+            weightFactor /= multipleMerge.mergeKernel * cameraSubPath.culmPdf;
+            
+			contrib = contrib + (cameraBsdfFactor | lightSubPath.contrib) * weightFactor;
 		}
 	};
 
@@ -118,7 +125,7 @@ public:
 
 			Real weightFactor = 0.f;
 
-			Real glossyIndex = subPath.bsdf.albedoGlossy();
+			Real glossyIndex = subPath.bsdf.glossyIndex;
 
 			if (cmp(dist.length()) == 0)
 			{
@@ -133,7 +140,7 @@ public:
 				weightFactor /= multipleMerge.mergeKernel * lightSubPath.lastPdf;
 			}
 			
-			contrib = contrib + (bsdfFactor | totContrib) * weight;
+			contrib = contrib + (bsdfFactor | totContrib) * weightFactor;
 		}
 	};
 
@@ -172,14 +179,13 @@ public:
 	Vector3 generateCameraSample(const int pathIndex , 
 		MMPathState& cameraState);
 
-	Color3 getLightRadiance(AbstractLight *light , PathState& cameraState ,
+	Color3 getLightRadiance(AbstractLight *light , MMPathState& cameraState ,
 		const Vector3& hitPos , const Vector3& rayDir);
 
-	Color3 getDirectIllumination(PathState& cameraState , const Vector3& hitPos ,
-		BSDF& bsdf);
+	Color3 getDirectIllumination(MMPathState& cameraState , const Vector3& hitPos , BSDF& bsdf);
 
-	Color3 connectVertices(PathState& lightState , BSDF& bsdf , 
-		const Vector3& hitPos , PathState& cameraState);
+	Color3 connectVertices(LightSubPath& lightSubPath , BSDF& bsdf , 
+		const Vector3& hitPos , MMPathState& cameraState);
 
 	Real mis(Real pdf)
 	{
