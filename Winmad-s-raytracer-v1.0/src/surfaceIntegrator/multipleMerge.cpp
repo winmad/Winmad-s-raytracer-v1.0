@@ -107,11 +107,13 @@ void MultipleMerge::runIteration(int iter)
 				if (isStart)
 				{
 					isStart = 0;
-					subPath.contrib = lightState.throughput;	
+					subPath.dirContrib = lightState.throughput;	
 					subPath.lastPdf = 1.f;
 				}
 				else
 				{
+					//subPath.dirContrib = lightState.throughput;
+
 					subPath.lastPdf = lightSubPaths[lightSubPaths.size() - 1].curPdf;
 				}
 
@@ -178,7 +180,7 @@ void MultipleMerge::runIteration(int iter)
 		}
 
 		for (int i = 0; i < lightSubPaths.size(); i++)
-			lightSubPaths[i].contrib = contribs[i];
+			lightSubPaths[i].indirContrib = contribs[i];
 	}
 
 	// generating camera paths
@@ -265,8 +267,9 @@ void MultipleMerge::runIteration(int iter)
 					Color3 tmp = connectVertices(lightSubPath ,
 						bsdf , hitPos , cameraState);
 
+					Color3 totContrib = lightSubPath.dirContrib + lightSubPath.indirContrib;
 					color = color + (cameraState.throughput |
-                                     lightSubPath.contrib | tmp);
+                                     totContrib | tmp);
 				}
 			}
 
@@ -366,7 +369,8 @@ Color3 MultipleMerge::connectToCamera(MMPathState& lightState ,
 		return Color3(0);
 
     Real glossyIndex = bsdf.glossyIndex;
-    Real weightFactor = 1.f / (1.f + mergeFactor(glossyIndex));
+    Real weightFactor = connectFactor(glossyIndex) / 
+		(connectFactor(glossyIndex) + mergeFactor(glossyIndex));
     
 	return res * weightFactor;
 }
@@ -407,8 +411,12 @@ bool MultipleMerge::sampleScattering(BSDF& bsdf ,
 	}
 
 	pathState.origin = hitPos;
+
+	Real weightFactor = connectFactor(bsdf.glossyIndex) 
+		/ (connectFactor(bsdf.glossyIndex) + mergeFactor(bsdf.glossyIndex));
+
 	pathState.throughput = (pathState.throughput | bsdfFactor) *
-		(cosWo / bsdfDirPdf);
+		(cosWo / bsdfDirPdf) * weightFactor;
 
 	return 1;
 }
@@ -590,7 +598,8 @@ Color3 MultipleMerge::getDirectIllumination(MMPathState& cameraState ,
 	}
 
     Real glossyIndex = bsdf.glossyIndex;
-    weightFactor = 1.f / (1.f + mergeFactor(glossyIndex));
+    weightFactor = connectFactor(glossyIndex) / 
+		(connectFactor(glossyIndex) + mergeFactor(glossyIndex));
 	return res * weightFactor;
 
 }
@@ -641,5 +650,10 @@ Color3 MultipleMerge::connectVertices(LightSubPath& lightSubPath ,
 		hitPos + dir * dist))
 		return Color3(0);
 
-	return res;
+	Real weightFactor = connectFactor(cameraBsdf.glossyIndex) / 
+		(connectFactor(cameraBsdf.glossyIndex) + mergeFactor(cameraBsdf.glossyIndex));
+	weightFactor *= connectFactor(lightSubPath.bsdf.glossyIndex) / 
+		(connectFactor(lightSubPath.bsdf.glossyIndex) + mergeFactor(lightSubPath.bsdf.glossyIndex));
+
+	return res * weightFactor;
 }

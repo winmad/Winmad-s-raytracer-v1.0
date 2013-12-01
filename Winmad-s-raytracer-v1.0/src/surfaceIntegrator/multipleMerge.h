@@ -23,7 +23,7 @@ public:
 	Vector3 origin; // origin
 	Vector3 pos; // origin -> nextPos
 	Color3 throughput;
-	Color3 contrib;
+	Color3 dirContrib , indirContrib;
 
 	Vector3 wo; // dir at origin
 	BSDF bsdf; // bsdf at nextPos
@@ -41,7 +41,7 @@ public:
 		throughput.g = curPathState.throughput.g / oldPathState.throughput.g;
 		throughput.b = curPathState.throughput.b / oldPathState.throughput.b;
 
-		contrib = Color3(0.f);
+		dirContrib = indirContrib = Color3(0.f);
 		
 		bsdf = curPathState.bsdf;
 		
@@ -89,10 +89,11 @@ public:
             weightFactor = multipleMerge.mergeFactor(glossyIndex)
 					/ (1.f + multipleMerge.mergeFactor(glossyIndex));
 
-            //weightFactor /= multipleMerge.mergeKernel * cameraSubPath.culmPdf;
-            weightFactor /= multipleMerge.mergeKernel / PI * 0.5f;
+            weightFactor /= multipleMerge.mergeKernel * cameraSubPath.culmPdf;
+            //weightFactor /= multipleMerge.mergeKernel / PI * 0.5f;
             
-			contrib = contrib + (cameraBsdfFactor | lightSubPath.contrib) * weightFactor;
+			Color3 totContrib = lightSubPath.dirContrib + lightSubPath.indirContrib;
+			contrib = contrib + (cameraBsdfFactor | totContrib) * weightFactor;
 		}
 	};
 
@@ -111,7 +112,7 @@ public:
 
 		void process(LightSubPath& subPath)
 		{
-			Color3 totContrib = subPath.contrib;
+			Color3 totContrib = subPath.dirContrib + subPath.indirContrib;
 			if (totContrib.isBlack())
 				return;
 
@@ -138,8 +139,8 @@ public:
 				// merge
 				weightFactor = multipleMerge.mergeFactor(glossyIndex)
 					/ (1.f + multipleMerge.mergeFactor(glossyIndex));
-				//weightFactor /= multipleMerge.mergeKernel * lightSubPath.lastPdf;
-                weightFactor /= multipleMerge.mergeKernel / PI * 0.5f;
+				weightFactor /= multipleMerge.mergeKernel * lightSubPath.lastPdf;
+                //weightFactor /= multipleMerge.mergeKernel / PI * 0.5f;
 			}
 			
 			contrib = contrib + (bsdfFactor | totContrib) * weightFactor;
@@ -192,6 +193,11 @@ public:
 	Real mis(Real pdf)
 	{
 		return pdf;
+	}
+
+	Real connectFactor(Real glossyIndex)
+	{
+		return exp(-glossyIndex);
 	}
 
 	Real mergeFactor(Real glossyIndex)
