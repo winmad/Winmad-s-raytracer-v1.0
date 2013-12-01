@@ -89,7 +89,8 @@ public:
             weightFactor = multipleMerge.mergeFactor(glossyIndex)
 					/ (1.f + multipleMerge.mergeFactor(glossyIndex));
 
-            weightFactor /= multipleMerge.mergeKernel * cameraSubPath.culmPdf;
+            //weightFactor /= multipleMerge.mergeKernel * cameraSubPath.culmPdf;
+            weightFactor /= multipleMerge.mergeKernel / PI * 0.5f;
             
 			contrib = contrib + (cameraBsdfFactor | lightSubPath.contrib) * weightFactor;
 		}
@@ -137,7 +138,8 @@ public:
 				// merge
 				weightFactor = multipleMerge.mergeFactor(glossyIndex)
 					/ (1.f + multipleMerge.mergeFactor(glossyIndex));
-				weightFactor /= multipleMerge.mergeKernel * lightSubPath.lastPdf;
+				//weightFactor /= multipleMerge.mergeKernel * lightSubPath.lastPdf;
+                weightFactor /= multipleMerge.mergeKernel / PI * 0.5f;
 			}
 			
 			contrib = contrib + (bsdfFactor | totContrib) * weightFactor;

@@ -5,6 +5,7 @@
 
 # Scene Files
 *.txt
+*.scene
 
 # Others
 *.zip
