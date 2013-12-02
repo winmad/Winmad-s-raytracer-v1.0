@@ -43,7 +43,7 @@ void MultipleMerge::outputImage(char *filename)
 			*/
 		}
 	}
-	film->outputImage(filename , 1.f / iterations , 2.2);
+	film->outputImage(filename , 1.f / iterations , 2.2f);
 }
 
 void MultipleMerge::runIteration(int iter)
@@ -150,13 +150,14 @@ void MultipleMerge::runIteration(int iter)
 			{
 				isNewSubPath = 0;
 				dirAtOrigin = lightState.dir;
+				oldLightState.throughput = lightState.throughput;
 			}
 		}
 		lightSubPathIndex.push_back((int)lightSubPaths.size());
 	}
 
 	// light path multiple merge
-	lightTree = new KdTree<LightSubPath>(lightSubPaths);
+	
 
 	std::vector<Color3> contribs;
 	contribs.resize(lightSubPaths.size());
@@ -165,6 +166,8 @@ void MultipleMerge::runIteration(int iter)
 
 	for (int mergeIter = 0; mergeIter < mergeIterations; mergeIter++)
 	{
+		lightTree = new KdTree<LightSubPath>(lightSubPaths);
+
 		for (int i = 0; i < lightSubPaths.size(); i++)
 		{
 			MergeQuery query(*this , lightSubPaths[i]);
@@ -181,6 +184,19 @@ void MultipleMerge::runIteration(int iter)
 
 		for (int i = 0; i < lightSubPaths.size(); i++)
 			lightSubPaths[i].indirContrib = contribs[i];
+
+		delete lightTree;
+	}
+
+	lightTree = new KdTree<LightSubPath>(lightSubPaths);
+
+	// debug
+	for (int i = 0; i < 500; i++)
+	{
+		LightSubPath& subPath = lightSubPaths[i];
+		fprintf(fp , "dirC=(%.4f,%.4f,%.4f),indirC=(%.4f,%.4f,%.4f)\n" ,
+			subPath.dirContrib.r , subPath.dirContrib.g , subPath.dirContrib.b ,
+			subPath.indirContrib.r , subPath.indirContrib.g , subPath.indirContrib.b);
 	}
 
 	// generating camera paths
@@ -400,6 +416,9 @@ bool MultipleMerge::sampleScattering(BSDF& bsdf ,
 	// Partial sub-path MIS quantities
 	// the evaluation is completed when the actual hit point is known!
 	// i.e. after tracing the ray, out of the procedure
+
+	Real weightFactor = 1.f;
+
 	if (sampledBSDFType & BSDF_SPECULAR)
 	{
 		pathState.curPdf = bsdfDirPdf;
@@ -408,12 +427,12 @@ bool MultipleMerge::sampleScattering(BSDF& bsdf ,
 	{
 		pathState.curPdf = bsdfDirPdf;
 		pathState.specularPath &= 0;
+
+		weightFactor = connectFactor(bsdf.glossyIndex) 
+			/ (connectFactor(bsdf.glossyIndex) + mergeFactor(bsdf.glossyIndex));
 	}
 
 	pathState.origin = hitPos;
-
-	Real weightFactor = connectFactor(bsdf.glossyIndex) 
-		/ (connectFactor(bsdf.glossyIndex) + mergeFactor(bsdf.glossyIndex));
 
 	pathState.throughput = (pathState.throughput | bsdfFactor) *
 		(cosWo / bsdfDirPdf) * weightFactor;

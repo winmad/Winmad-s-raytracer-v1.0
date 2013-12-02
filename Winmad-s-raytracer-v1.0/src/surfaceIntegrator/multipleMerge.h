@@ -87,9 +87,11 @@ public:
 			Real glossyIndex = cameraSubPath.bsdf.glossyIndex;
 
             weightFactor = multipleMerge.mergeFactor(glossyIndex)
-					/ (1.f + multipleMerge.mergeFactor(glossyIndex));
+					/ (multipleMerge.connectFactor(glossyIndex) + 
+					multipleMerge.mergeFactor(glossyIndex));
 
-            weightFactor /= multipleMerge.mergeKernel * cameraSubPath.culmPdf;
+            weightFactor *= multipleMerge.mergeKernel;
+			//weightFactor /= cameraSubPath.culmPdf;
             //weightFactor /= multipleMerge.mergeKernel / PI * 0.5f;
             
 			Color3 totContrib = lightSubPath.dirContrib + lightSubPath.indirContrib;
@@ -125,6 +127,8 @@ public:
 
 			Vector3 dist = subPath.pos - lightSubPath.origin;
 
+			bsdfDirPdf *= subPath.bsdf.continueProb;
+
 			Real weightFactor = 0.f;
 
 			Real glossyIndex = subPath.bsdf.glossyIndex;
@@ -132,14 +136,20 @@ public:
 			if (cmp(dist.length()) == 0)
 			{
 				// connect
-				weightFactor = 1.f / (1.f + multipleMerge.mergeFactor(glossyIndex));
+				weightFactor = multipleMerge.connectFactor(glossyIndex) / 
+					(multipleMerge.connectFactor(glossyIndex) + 
+					multipleMerge.mergeFactor(glossyIndex));
+
+				weightFactor *= cosTerm / bsdfDirPdf;
 			}
 			else
 			{
 				// merge
 				weightFactor = multipleMerge.mergeFactor(glossyIndex)
-					/ (1.f + multipleMerge.mergeFactor(glossyIndex));
-				weightFactor /= multipleMerge.mergeKernel * lightSubPath.lastPdf;
+					/ (multipleMerge.connectFactor(glossyIndex) + 
+					multipleMerge.mergeFactor(glossyIndex));
+				weightFactor *= multipleMerge.mergeKernel;
+		        //weightFactor /= lightSubPath.lastPdf;
                 //weightFactor /= multipleMerge.mergeKernel / PI * 0.5f;
 			}
 			
@@ -197,12 +207,13 @@ public:
 
 	Real connectFactor(Real glossyIndex)
 	{
-		return exp(-glossyIndex);
+		return 1.f;
 	}
 
 	Real mergeFactor(Real glossyIndex)
 	{
-		return PI * SQR(radius) * exp(-glossyIndex);
+		//return PI * SQR(radius) * exp(-glossyIndex);
+		return 0.5f;
 	}
 };
 

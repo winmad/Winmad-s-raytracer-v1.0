@@ -314,6 +314,7 @@ void PathReusing::runIteration(int iter)
 			{
 				isNewSubPath = 0;
 				dirAtOrigin = cameraState.dir;
+				oldCameraState.throughput = cameraState.throughput;
 			}
 		}
 
@@ -330,10 +331,10 @@ void PathReusing::runIteration(int iter)
 
 	int mergeIterations = maxPathLength;
 
-	pathTree = new KdTree<SubPath>(cameraSubPaths);
-
 	for (int mergeIter = 0; mergeIter < mergeIterations; mergeIter++)
 	{
+		pathTree = new KdTree<SubPath>(cameraSubPaths);
+
 		for (int i = 0; i < cameraSubPaths.size(); i++)
 		{
 			MergeQuery query(*this , cameraSubPaths[i].nextPos ,
@@ -353,9 +354,9 @@ void PathReusing::runIteration(int iter)
 
 		for (int i = 0; i < cameraSubPaths.size(); i++)
 			cameraSubPaths[i].pathContrib = contribs[i];
-	}
 
-	delete pathTree;
+		delete pathTree;
+	}
 
 	for (int i = 0; i < cameraSubPaths.size(); i++)
 	{

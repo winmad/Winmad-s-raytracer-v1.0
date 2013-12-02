@@ -39,12 +39,12 @@ void VertexCM::outputImage(char *filename)
 			film->color[j][i] = tmp;
 		}
 	}
-	film->outputImage(filename , 1.f / 16.f / iterations , 2.2);
+	film->outputImage(filename , 1.f / iterations , 2.2);
 }
 
 void VertexCM::runIteration(int iter)
 {
-	int pathNum = height * width * 16;
+	int pathNum = height * width;
 	screenPixelNum = (Real)(height * width);
 	lightSubPathNum = pathNum;
 

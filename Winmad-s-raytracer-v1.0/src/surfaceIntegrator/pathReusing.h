@@ -130,7 +130,7 @@ public:
 			bsdfDirPdf *= cameraSubPath.bsdf.continueProb;
 			bsdfRevPdf *= cameraSubPath.bsdf.continueProb;
 
-			contrib = contrib + (bsdfFactor | totContrib);
+			contrib = contrib + totContrib;
 		}
 	};
 
