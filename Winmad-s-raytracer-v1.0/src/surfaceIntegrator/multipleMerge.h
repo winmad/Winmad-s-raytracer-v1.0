@@ -153,6 +153,8 @@ public:
                 //weightFactor /= multipleMerge.mergeKernel / PI * 0.5f;
 			}
 			
+			mergeNum++;
+
 			contrib = contrib + (bsdfFactor | totContrib) * weightFactor;
 		}
 	};
@@ -213,7 +215,7 @@ public:
 	Real mergeFactor(Real glossyIndex)
 	{
 		//return PI * SQR(radius) * exp(-glossyIndex);
-		return 0.5f;
+		return 1.f;
 	}
 };
 

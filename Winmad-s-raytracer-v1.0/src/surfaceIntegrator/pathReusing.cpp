@@ -298,7 +298,7 @@ void PathReusing::runIteration(int iter)
 
 				//fprintf(fp , "%d\n" , query.mergeNum);
 
-				Color3 color = (cameraSubPaths[N].throughput | query.contrib) *
+				color = (cameraSubPaths[N].throughput | query.contrib) *
 					kernel;
 
 				Real weight = 1.f;

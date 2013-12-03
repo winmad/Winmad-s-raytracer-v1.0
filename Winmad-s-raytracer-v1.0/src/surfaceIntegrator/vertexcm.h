@@ -15,6 +15,8 @@ struct PathVertex
 	Color3 throughput;
 	int pathLength;
 
+	std::string pathHistory;
+
 	BSDF bsdf;
 
 	Real dVCM , dVC , dVM;
@@ -28,6 +30,8 @@ struct SubPathState
 	int pathLength : 30;
 	int isFiniteLight : 1;
 	int specularPath : 1;
+
+	std::string pathHistory;
 
 	Real dVCM , dVC , dVM;
 };

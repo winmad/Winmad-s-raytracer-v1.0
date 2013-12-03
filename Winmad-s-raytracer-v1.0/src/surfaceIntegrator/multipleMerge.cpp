@@ -135,7 +135,7 @@ void MultipleMerge::runIteration(int iter)
 					{
 						Color3 res = connectToCamera(lightState , hitPos , bsdf);
 
-						film->addColor((int)imagePos.x , (int)imagePos.y , res);
+						//film->addColor((int)imagePos.x , (int)imagePos.y , res);
 					}
 				}
 			}
@@ -191,13 +191,13 @@ void MultipleMerge::runIteration(int iter)
 	lightTree = new KdTree<LightSubPath>(lightSubPaths);
 
 	// debug
-	for (int i = 0; i < 500; i++)
-	{
-		LightSubPath& subPath = lightSubPaths[i];
-		fprintf(fp , "dirC=(%.4f,%.4f,%.4f),indirC=(%.4f,%.4f,%.4f)\n" ,
-			subPath.dirContrib.r , subPath.dirContrib.g , subPath.dirContrib.b ,
-			subPath.indirContrib.r , subPath.indirContrib.g , subPath.indirContrib.b);
-	}
+	//for (int i = 0; i < 500; i++)
+	//{
+	//	LightSubPath& subPath = lightSubPaths[i];
+	//	fprintf(fp , "dirC=(%.4f,%.4f,%.4f),indirC=(%.4f,%.4f,%.4f)\n" ,
+	//		subPath.dirContrib.r , subPath.dirContrib.g , subPath.dirContrib.b ,
+	//		subPath.indirContrib.r , subPath.indirContrib.g , subPath.indirContrib.b);
+	//}
 
 	// generating camera paths
 	for (int index = 0; index < cameraPathNum; index++)
@@ -236,6 +236,9 @@ void MultipleMerge::runIteration(int iter)
 			if (!bsdf.isValid())
 				break;
 
+			cameraState.pos = hitPos;
+			cameraState.bsdf = bsdf;
+
 			cameraState.curPdf = pdfWtoA(cameraState.curPdf , inter.t , 
 				std::abs(bsdf.cosWi())); // another part
 			cameraState.culmPdf *= cameraState.curPdf;
@@ -261,8 +264,8 @@ void MultipleMerge::runIteration(int iter)
 			{
 				if (cameraState.pathLength + 1 >= minPathLength)
 				{
-                    color = color + (cameraState.throughput |
-						getDirectIllumination(cameraState , hitPos , bsdf));
+                    //color = color + (cameraState.throughput |
+					//	getDirectIllumination(cameraState , hitPos , bsdf));
                 }
 			}
 
@@ -284,8 +287,8 @@ void MultipleMerge::runIteration(int iter)
 						bsdf , hitPos , cameraState);
 
 					Color3 totContrib = lightSubPath.dirContrib + lightSubPath.indirContrib;
-					color = color + (cameraState.throughput |
-                                     totContrib | tmp);
+					//color = color + (cameraState.throughput |
+                    //                 totContrib | tmp);
 				}
 			}
 
@@ -297,9 +300,9 @@ void MultipleMerge::runIteration(int iter)
 				lightTree->searchInRadius(0 , cameraState.pos , 
 					radius , query);
 
-				//fprintf(fp , "%d\n" , query.mergeNum);
+				fprintf(fp , "%d\n" , query.mergeNum);
 
-				Color3 color = color + (cameraState.throughput | query.contrib);
+				//color = color + (cameraState.throughput | query.contrib);
 			}
 
             if (!bsdf.isDelta)
