@@ -192,9 +192,9 @@ void VertexCM::runIteration(int iter)
 
 				if (cameraState.pathLength >= minPathLength)
 				{
-					color = color + (cameraState.throughput |
-						getLightRadiance(light , cameraState , 
-						hitPos , ray.dir));
+					//color = color + (cameraState.throughput |
+					//	getLightRadiance(light , cameraState , 
+					//	hitPos , ray.dir));
 				}
 				break;
 			}
@@ -234,8 +234,8 @@ void VertexCM::runIteration(int iter)
 						cameraState.pathLength > maxPathLength)
 						break;
 
-					Color3 tmp = connectVertices(lightVertex ,
-						bsdf , hitPos , cameraState);
+					//Color3 tmp = connectVertices(lightVertex ,
+					//	bsdf , hitPos , cameraState);
 
 					//color = color + (cameraState.throughput |
 					//	lightVertex.throughput | tmp);
@@ -251,8 +251,8 @@ void VertexCM::runIteration(int iter)
 
 				//fprintf(fp , "%d\n" , query.mergeNum);
 
-				//color = color + (cameraState.throughput | query.contrib) *
-				//	vmNormalization;
+				color = color + (cameraState.throughput | query.contrib) *
+					vmNormalization;
 			}
 
 			if (!sampleScattering(bsdf , hitPos , cameraState))
@@ -534,7 +534,11 @@ Color3 VertexCM::getDirectIllumination(SubPathState& cameraState ,
 		hitPos + dirToLight * dist))
 		return Color3(0);
 
-	//fprintf(fp , "s=%d,t=%d,w=%.6f\n" , 1 , cameraState.pathLength , misWeight);
+	std::string pathHistory = cameraState.pathHistory;
+	pathHistory.push_back('D');
+
+	fprintf(fp , "s=%d,t=%d,CameraPath=%s,w=%.6f\n" , 1 , 
+		cameraState.pathLength , pathHistory.c_str() , misWeight);
 
 	return res;
 }
@@ -595,8 +599,9 @@ Color3 VertexCM::connectVertices(PathVertex& lightVertex ,
 		cameraHitPos + dir * dist))
 		return Color3(0);
 
-	//fprintf(fp , "s=%d,t=%d,w=%.6f\n" , lightVertex.pathLength , 
-	//	cameraState.pathLength , misWeight);
+	fprintf(fp , "s=%d,t=%d,LightPath=%s,CameraPath=%s,w=%.6f\n" , lightVertex.pathLength , 
+		cameraState.pathLength , lightVertex.pathHistory.c_str() ,
+		cameraState.pathHistory.c_str() , misWeight);
 
 	return res;
 }

@@ -207,15 +207,14 @@ public:
 		return pdf;
 	}
 
-	Real connectFactor(Real glossyIndex)
+	Real connectFactor(Real pdf)
 	{
-		return 1.f;
+		return mis(pdf);
 	}
 
 	Real mergeFactor(Real glossyIndex)
 	{
-		//return PI * SQR(radius) * exp(-glossyIndex);
-		return 1.f;
+		return mis(0.5 * SQR(radius) * exp(-glossyIndex));
 	}
 };
 
