@@ -85,9 +85,9 @@ public:
 
 			Real misWeight = 1.f / (weightLight + 1.f + weightCamera);
 
-			fprintf(fp , "vm s=%d,t=%d,LightPath=%s,CameraPath=%s,w=%.6f\n" , lightVertex.pathLength , 
-				cameraState.pathLength , lightVertex.pathHistory.c_str() ,
-				cameraState.pathHistory.c_str() , misWeight);
+			//fprintf(fp , "vm s=%d,t=%d,LightPath=%s,CameraPath=%s,w=%.6f\n" , lightVertex.pathLength , 
+			//	cameraState.pathLength , lightVertex.pathHistory.c_str() ,
+			//	cameraState.pathHistory.c_str() , misWeight);
 
 			contrib = contrib + (cameraBsdfFactor | lightVertex.throughput) *
 				misWeight;

@@ -119,7 +119,6 @@ void MultipleMerge::runIteration(int iter)
 
 				lightSubPaths.push_back(subPath);
 
-				lightState.culmPdf = 1.f;
 				oldLightState = lightState;
 				
 				isNewSubPath = 1;
@@ -138,6 +137,8 @@ void MultipleMerge::runIteration(int iter)
 						film->addColor((int)imagePos.x , (int)imagePos.y , res);
 					}
 				}
+
+				lightState.culmPdf = 1.f;
 			}
 
 			if (lightState.pathLength + 2 > maxPathLength)
@@ -161,7 +162,7 @@ void MultipleMerge::runIteration(int iter)
 	std::vector<Color3> contribs;
 	contribs.resize(lightSubPaths.size());
 
-	int mergeIterations = maxPathLength;
+	int mergeIterations = 0;
 
 	for (int mergeIter = 0; mergeIter < mergeIterations; mergeIter++)
 	{
@@ -248,9 +249,9 @@ void MultipleMerge::runIteration(int iter)
 
 				if (cameraState.pathLength >= minPathLength)
 				{
-                    color = color + (cameraState.throughput |
-						getLightRadiance(light , cameraState , 
-						hitPos , ray.dir));
+                    //color = color + (cameraState.throughput |
+					//	getLightRadiance(light , cameraState , 
+					//	hitPos , ray.dir));
 				}
 				break;
 			}
@@ -263,8 +264,8 @@ void MultipleMerge::runIteration(int iter)
 			{
 				if (cameraState.pathLength + 1 >= minPathLength)
 				{
-                    color = color + (cameraState.throughput |
-						getDirectIllumination(cameraState , hitPos , bsdf));
+                    //color = color + (cameraState.throughput |
+					//	getDirectIllumination(cameraState , hitPos , bsdf));
                 }
 			}
 
@@ -286,8 +287,8 @@ void MultipleMerge::runIteration(int iter)
 						bsdf , hitPos , cameraState);
 
 					Color3 totContrib = lightSubPath.dirContrib + lightSubPath.indirContrib;
-					color = color + (cameraState.throughput |
-                                     totContrib | tmp);
+					//color = color + (cameraState.throughput |
+                    //                 totContrib | tmp);
 				}
 			}
 
@@ -301,7 +302,7 @@ void MultipleMerge::runIteration(int iter)
 
 				fprintf(fp , "%d\n" , query.mergeNum);
 
-				color = color + (cameraState.throughput | query.contrib);
+				//color = color + (cameraState.throughput | query.contrib);
 			}
 
             if (!bsdf.isDelta)
@@ -387,8 +388,9 @@ Color3 MultipleMerge::connectToCamera(MMPathState& lightState ,
 		return Color3(0);
 
     Real glossyIndex = bsdf.glossyIndex;
-    Real weightFactor = connectFactor(bsdfDirPdf) / 
-		(connectFactor(bsdfDirPdf) + mergeFactor(glossyIndex));
+	Real pdf = bsdfDirPdf * lightState.culmPdf;
+    Real weightFactor = connectFactor(pdf) / 
+		(connectFactor(pdf) + mergeFactor(glossyIndex));
     
 	return res * weightFactor;
 }
@@ -430,8 +432,10 @@ bool MultipleMerge::sampleScattering(BSDF& bsdf ,
 		pathState.curPdf = bsdfDirPdf;
 		pathState.specularPath &= 0;
 
-		weightFactor = connectFactor(bsdfDirPdf) 
-			/ (connectFactor(bsdfDirPdf) + mergeFactor(bsdf.glossyIndex));
+		Real pdf = pathState.culmPdf * bsdfDirPdf;
+
+		weightFactor = connectFactor(pdf) 
+			/ (connectFactor(pdf) + mergeFactor(bsdf.glossyIndex));
 	}
 
 	pathState.origin = hitPos;
@@ -618,7 +622,9 @@ Color3 MultipleMerge::getDirectIllumination(MMPathState& cameraState ,
 		}
 	}
 
-    weightFactor = connectFactor(bsdfDirPdf) / (connectFactor(bsdfDirPdf) +
+	Real pdf = bsdfDirPdf * cameraState.culmPdf;
+
+    weightFactor = connectFactor(pdf) / (connectFactor(pdf) +
 		mergeFactor(bsdf.glossyIndex));
 
 	return res * weightFactor;
@@ -671,10 +677,12 @@ Color3 MultipleMerge::connectVertices(LightSubPath& lightSubPath ,
 		hitPos + dir * dist))
 		return Color3(0);
 
-	Real weightFactor = connectFactor(cameraBsdfDirPdf) / 
-		(connectFactor(cameraBsdfDirPdf) + mergeFactor(cameraBsdf.glossyIndex));
-	weightFactor *= connectFactor(lightBsdfDirPdf) / 
-		(connectFactor(lightBsdfDirPdf) + mergeFactor(lightSubPath.bsdf.glossyIndex));
+	Real weightFactor = connectFactor(cameraBsdfDirPdf * cameraState.culmPdf) / 
+		(connectFactor(cameraBsdfDirPdf * cameraState.culmPdf) + 
+		mergeFactor(cameraBsdf.glossyIndex));
+	weightFactor *= connectFactor(lightBsdfDirPdf * lightSubPath.curPdf) / 
+		(connectFactor(lightBsdfDirPdf * lightSubPath.curPdf) + 
+		mergeFactor(lightSubPath.bsdf.glossyIndex));
 
 	return res * weightFactor;
 }

@@ -85,9 +85,10 @@ public:
 			Real weightFactor = 0.f;
 
 			Real glossyIndex = cameraSubPath.bsdf.glossyIndex;
+			Real pdf = cameraBsdfDirPdf * cameraSubPath.culmPdf;
 
             weightFactor = multipleMerge.mergeFactor(glossyIndex)
-					/ (multipleMerge.connectFactor(glossyIndex) + 
+					/ (multipleMerge.connectFactor(pdf) + 
 					multipleMerge.mergeFactor(glossyIndex));
 
             weightFactor *= multipleMerge.mergeKernel;
@@ -133,11 +134,13 @@ public:
 
 			Real glossyIndex = subPath.bsdf.glossyIndex;
 
+			Real pdf = bsdfDirPdf * subPath.curPdf;
+
 			if (cmp(dist.length()) == 0)
 			{
 				// connect
-				weightFactor = multipleMerge.connectFactor(glossyIndex) / 
-					(multipleMerge.connectFactor(glossyIndex) + 
+				weightFactor = multipleMerge.connectFactor(pdf) / 
+					(multipleMerge.connectFactor(pdf) + 
 					multipleMerge.mergeFactor(glossyIndex));
 
 				weightFactor *= cosTerm / bsdfDirPdf;
@@ -146,7 +149,7 @@ public:
 			{
 				// merge
 				weightFactor = multipleMerge.mergeFactor(glossyIndex)
-					/ (multipleMerge.connectFactor(glossyIndex) + 
+					/ (multipleMerge.connectFactor(pdf) + 
 					multipleMerge.mergeFactor(glossyIndex));
 				weightFactor *= multipleMerge.mergeKernel;
 		        //weightFactor /= lightSubPath.lastPdf;
@@ -214,7 +217,8 @@ public:
 
 	Real mergeFactor(Real glossyIndex)
 	{
-		return mis(0.5 * SQR(radius) * exp(-glossyIndex));
+		//return mis(0.5 * SQR(radius) * exp(-glossyIndex));
+		return mis(PI * radius);
 	}
 };
 

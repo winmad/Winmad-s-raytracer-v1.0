@@ -120,8 +120,8 @@ void VertexCM::runIteration(int iter)
 					Vector3 imagePos = scene.camera.worldToRaster.tPoint(hitPos);
 					if (scene.camera.checkRaster(imagePos.x , imagePos.y))
 					{
-						//Color3 res = connectToCamera(lightState , hitPos , bsdf);
-						//film->addColor((int)imagePos.x , (int)imagePos.y , res);
+						Color3 res = connectToCamera(lightState , hitPos , bsdf);
+						film->addColor((int)imagePos.x , (int)imagePos.y , res);
 					}
 				}
 			}
@@ -251,8 +251,8 @@ void VertexCM::runIteration(int iter)
 
 				//fprintf(fp , "%d\n" , query.mergeNum);
 
-				color = color + (cameraState.throughput | query.contrib) *
-					vmNormalization;
+				//color = color + (cameraState.throughput | query.contrib) *
+				//	vmNormalization;
 			}
 
 			if (!sampleScattering(bsdf , hitPos , cameraState))
