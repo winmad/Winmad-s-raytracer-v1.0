@@ -25,8 +25,9 @@ public:
 	std::vector<AbstractLight*> lights;
 	SceneSphere sceneSphere;
 	BackgroundLight *background;
+	Real totArea;
 
-	Scene() : background(NULL) {}
+	Scene() : background(NULL) , totArea(0.f) {}
 
 	~Scene()
 	{

@@ -16,6 +16,7 @@ public:
 	virtual void setBox();
 	virtual int getMatId();
 	virtual bool hit(const Ray& ray , Intersection& inter);
+	virtual Real getArea();
 };
 
 #endif

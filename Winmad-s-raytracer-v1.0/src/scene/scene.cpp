@@ -5,6 +5,7 @@
 void Scene::addGeometry(Geometry *g)
 {
 	objs.push_back(g);
+	totArea += g->getArea();
 }
 
 void Scene::addLight(AbstractLight *l)

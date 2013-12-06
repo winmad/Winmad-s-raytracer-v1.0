@@ -35,6 +35,8 @@ public:
 	int getMatId();
 
 	bool hit(const Ray& ray , Intersection& inter);
+
+	Real getArea();
 };
 
 #endif

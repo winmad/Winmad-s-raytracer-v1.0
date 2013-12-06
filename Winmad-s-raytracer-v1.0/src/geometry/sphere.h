@@ -36,6 +36,11 @@ public:
 
 	int getMatId();
 
+	Real getArea()
+	{
+		return 4 * PI * SQR(radius);
+	}
+
 	bool hit(const Ray& ray , Intersection& inter);
 };
 

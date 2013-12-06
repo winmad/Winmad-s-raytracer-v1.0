@@ -10,43 +10,14 @@ struct MMPathState
 	Color3 throughput;
 	BSDF bsdf;
 
+	Color3 dirContrib , indirContrib;
+	Vector3 dirAtOrigin;
+
+	Real weight;
+
 	int pathLength : 30;
 	int specularPath : 1;
 	int isFiniteLight : 1;
-
-	Real curPdf , culmPdf;
-};
-
-class LightSubPath
-{
-public:
-	Vector3 origin; // origin
-	Vector3 pos; // origin -> nextPos
-	Color3 throughput;
-	Color3 dirContrib , indirContrib;
-
-	Vector3 wo; // dir at origin
-	BSDF bsdf; // bsdf at nextPos
-
-	Real lastPdf , curPdf;
-
-    LightSubPath() {}
-    
-	LightSubPath(MMPathState& oldPathState , MMPathState& curPathState)
-	{	
-		origin = oldPathState.pos;
-		pos = curPathState.pos;
-		
-		throughput.r = curPathState.throughput.r / oldPathState.throughput.r;
-		throughput.g = curPathState.throughput.g / oldPathState.throughput.g;
-		throughput.b = curPathState.throughput.b / oldPathState.throughput.b;
-
-		dirContrib = indirContrib = Color3(0.f);
-		
-		bsdf = curPathState.bsdf;
-		
-		curPdf = curPathState.culmPdf;
-	}
 };
 
 class MultipleMerge : public SurfaceIntegrator
@@ -65,7 +36,7 @@ public:
 			: multipleMerge(multipleMerge) , cameraSubPath(cameraSubPath) ,
 			contrib(0) , mergeNum(0) {}
 
-		void process(LightSubPath& lightSubPath)
+		void process(MMPathState& lightSubPath)
 		{
 			Vector3 lightDir = lightSubPath.bsdf.wiWorld();
 
@@ -82,21 +53,8 @@ public:
 			cameraBsdfDirPdf *= cameraSubPath.bsdf.continueProb;
 			cameraBsdfRevPdf *= lightSubPath.bsdf.continueProb;
             
-			Real weightFactor = 0.f;
-
-			Real glossyIndex = cameraSubPath.bsdf.glossyIndex;
-			Real pdf = cameraBsdfDirPdf * cameraSubPath.culmPdf;
-
-            weightFactor = multipleMerge.mergeFactor(glossyIndex)
-					/ (multipleMerge.connectFactor(pdf) + 
-					multipleMerge.mergeFactor(glossyIndex));
-
-            weightFactor *= multipleMerge.mergeKernel;
-			//weightFactor /= cameraSubPath.culmPdf;
-            //weightFactor /= multipleMerge.mergeKernel / PI * 0.5f;
-            
 			Color3 totContrib = lightSubPath.dirContrib + lightSubPath.indirContrib;
-			contrib = contrib + (cameraBsdfFactor | totContrib) * weightFactor;
+			contrib = contrib + (cameraBsdfFactor | totContrib);
 		}
 	};
 
@@ -104,16 +62,16 @@ public:
 	{
 	public:
 		MultipleMerge& multipleMerge;
-		LightSubPath& lightSubPath;
+		MMPathState& lightSubPath;
 		Color3 contrib;
 		int mergeNum;
 
 		MergeQuery(MultipleMerge& multipleMerge ,
-			LightSubPath& lightSubPath)
+			MMPathState& lightSubPath)
 			: multipleMerge(multipleMerge) , lightSubPath(lightSubPath) , 
 			contrib(0) , mergeNum(0) {}
 
-		void process(LightSubPath& subPath)
+		void process(MMPathState& subPath)
 		{
 			Color3 totContrib = subPath.dirContrib + subPath.indirContrib;
 			if (totContrib.isBlack())
@@ -121,7 +79,7 @@ public:
 
 			Real cosTerm , bsdfDirPdf , bsdfRevPdf;
 			Color3 bsdfFactor = subPath.bsdf.f(multipleMerge.scene ,
-				lightSubPath.wo , cosTerm , &bsdfDirPdf , &bsdfRevPdf);
+				lightSubPath.dirAtOrigin , cosTerm , &bsdfDirPdf , &bsdfRevPdf);
 
 			if (bsdfFactor.isBlack())
 				return;
@@ -134,23 +92,23 @@ public:
 
 			Real glossyIndex = subPath.bsdf.glossyIndex;
 
-			Real pdf = bsdfDirPdf * subPath.curPdf;
+			Real pdf = bsdfDirPdf;
 
 			if (cmp(dist.length()) == 0)
 			{
 				// connect
 				weightFactor = multipleMerge.connectFactor(pdf) / 
 					(multipleMerge.connectFactor(pdf) + 
-					multipleMerge.mergeFactor(glossyIndex));
+					multipleMerge.mergeFactor());
 
 				weightFactor *= cosTerm / bsdfDirPdf;
 			}
 			else
 			{
 				// merge
-				weightFactor = multipleMerge.mergeFactor(glossyIndex)
+				weightFactor = multipleMerge.mergeFactor()
 					/ (multipleMerge.connectFactor(pdf) + 
-					multipleMerge.mergeFactor(glossyIndex));
+					multipleMerge.mergeFactor());
 				weightFactor *= multipleMerge.mergeKernel;
 		        //weightFactor /= lightSubPath.lastPdf;
                 //weightFactor /= multipleMerge.mergeKernel / PI * 0.5f;
@@ -170,11 +128,11 @@ public:
 	Real radius;
 	Real mergeKernel;        // constant kernel
 
-	std::vector<LightSubPath> lightSubPaths;
+	std::vector<MMPathState> lightSubPaths;
 
 	std::vector<int> lightSubPathIndex;
 
-	KdTree<LightSubPath> *lightTree;
+	KdTree<MMPathState> *lightTree;
 
 	MultipleMerge() {}
 
@@ -192,7 +150,7 @@ public:
 		BSDF& bsdf);
 
 	bool sampleScattering(BSDF& bsdf , const Vector3& hitPos , 
-		MMPathState& pathState);
+		MMPathState& pathState , Real *_bsdfDirPdf = NULL);
 
 	Vector3 generateCameraSample(const int pathIndex , 
 		MMPathState& cameraState);
@@ -202,7 +160,7 @@ public:
 
 	Color3 getDirectIllumination(MMPathState& cameraState , const Vector3& hitPos , BSDF& bsdf);
 
-	Color3 connectVertices(LightSubPath& lightSubPath , BSDF& bsdf , 
+	Color3 connectVertices(MMPathState& lightSubPath , BSDF& bsdf , 
 		const Vector3& hitPos , MMPathState& cameraState);
 
 	Real mis(Real pdf)
@@ -215,10 +173,16 @@ public:
 		return mis(pdf);
 	}
 
-	Real mergeFactor(Real glossyIndex)
+	Real mergeFactor()
 	{
-		//return mis(0.5 * SQR(radius) * exp(-glossyIndex));
-		return mis(PI * radius);
+		return mis(0.5 * SQR(radius) * lightPathNum / scene.totArea);
+	}
+
+	Real gatherFactor(Real mergeNum , Real glossyIndex)
+	{
+		Real v1 = 0.1f , v2 = 0.9f;
+		Real res = mergeNum / (mergeNum + std::exp(glossyIndex));
+		return (res - v1) / (v2 - v1);
 	}
 };
 

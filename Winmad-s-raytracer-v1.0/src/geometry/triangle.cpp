@@ -5,6 +5,12 @@ int Triangle::getMatId()
 	return matId;
 }
 
+Real Triangle::getArea()
+{
+	Vector3 n = (p1 - p0) * (p2 - p0);
+	return 0.5f * n.length();
+}
+
 bool Triangle::hit(const Ray& ray , Intersection& inter)
 {
 	Real A = p0.x - p1.x;
