@@ -11,9 +11,10 @@ struct MMPathState
 	BSDF bsdf;
 
 	Color3 dirContrib , indirContrib;
-	Vector3 dirAtOrigin;
+	Vector3 posAtOrigin , dirAtOrigin;
 
 	Real weight;
+	Real totWeight;
 
 	int pathLength : 30;
 	int specularPath : 1;
@@ -121,7 +122,8 @@ public:
 	};
 
 	int minPathLength , maxPathLength;
-	int lightPathNum , cameraPathNum , pixelNum;
+	int lightPathNum , cameraPathNum , interPathNum;
+	int partialPathNum , pixelNum;
 	int iterations;
 	Real baseRadius;         // initial merging radius
 	Real radiusAlpha;        // radius reduction per iteration
@@ -129,8 +131,6 @@ public:
 	Real mergeKernel;        // constant kernel
 
 	std::vector<MMPathState> lightSubPaths;
-
-	std::vector<int> lightSubPathIndex;
 
 	KdTree<MMPathState> *lightTree;
 
@@ -145,6 +145,8 @@ public:
 	void outputImage(char *filename);
 
 	void generateLightSample(MMPathState& lightState);
+
+	void generateInterSample(MMPathState& interState);
 
 	Color3 connectToCamera(MMPathState& lightState , const Vector3& hitPos ,
 		BSDF& bsdf);
@@ -175,7 +177,7 @@ public:
 
 	Real mergeFactor()
 	{
-		return mis(0.5 * SQR(radius) * lightPathNum / scene.totArea);
+		return mis(0.5 * SQR(radius) * partialPathNum / scene.totArea);
 	}
 
 	Real gatherFactor(Real mergeNum , Real glossyIndex)

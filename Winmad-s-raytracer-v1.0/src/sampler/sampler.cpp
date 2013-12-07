@@ -134,6 +134,7 @@ Real powerCosHemispherePdf(const Vector3& n , const Vector3& dir ,
 	Real cos = clampVal(n ^ dir , 0.f , 1.f);
 	return (power + 1.f) * std::pow(cos , power) * (0.5f * INV_PI);
 }
+
 Vector3 sampleUniformSphere(const Vector3& samples , Real *pdf)
 {
     Real u1 = samples.x;
@@ -155,4 +156,16 @@ Vector3 sampleUniformSphere(const Vector3& samples , Real *pdf)
 Real uniformSpherePdf()
 {
 	return INV_PI * 0.25f;
+}
+
+Vector3 sampleUniformHemisphere(const Vector3& samples , Real *pdf)
+{
+	Vector3 res = sampleUniformSphere(samples , pdf);
+	res.z = std::abs(res.z);
+	return res;
+}
+
+Real uniformHemispherePdf()
+{
+	return INV_PI * 0.5f;
 }

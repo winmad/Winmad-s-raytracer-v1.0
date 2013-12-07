@@ -38,4 +38,8 @@ Vector3 sampleUniformSphere(const Vector3& samples , Real *pdf);
 
 Real uniformSpherePdf();
 
+Vector3 sampleUniformHemisphere(const Vector3& samples , Real *pdf);
+
+Real uniformHemispherePdf();
+
 #endif
