@@ -4,7 +4,7 @@ void VertexCM::init(char *filename , Parameters& para)
 {
 	minPathLength = 0;
 	maxPathLength = 10;
-	iterations = 1;
+	iterations = 10;
 
 	samplesPerPixel = para.SAMPLES_PER_PIXEL;
 	
@@ -192,9 +192,9 @@ void VertexCM::runIteration(int iter)
 
 				if (cameraState.pathLength >= minPathLength)
 				{
-					//color = color + (cameraState.throughput |
-					//	getLightRadiance(light , cameraState , 
-					//	hitPos , ray.dir));
+					color = color + (cameraState.throughput |
+						getLightRadiance(light , cameraState , 
+						hitPos , ray.dir));
 				}
 				break;
 			}
@@ -207,8 +207,8 @@ void VertexCM::runIteration(int iter)
 			{
 				if (cameraState.pathLength + 1 >= minPathLength)
 				{
-					//color = color + (cameraState.throughput |
-					//	getDirectIllumination(cameraState , hitPos , bsdf));
+					color = color + (cameraState.throughput |
+						getDirectIllumination(cameraState , hitPos , bsdf));
 				}
 			}
 
@@ -234,11 +234,11 @@ void VertexCM::runIteration(int iter)
 						cameraState.pathLength > maxPathLength)
 						break;
 
-					//Color3 tmp = connectVertices(lightVertex ,
-					//	bsdf , hitPos , cameraState);
+					Color3 tmp = connectVertices(lightVertex ,
+						bsdf , hitPos , cameraState);
 
-					//color = color + (cameraState.throughput |
-					//	lightVertex.throughput | tmp);
+					color = color + (cameraState.throughput |
+						lightVertex.throughput | tmp);
 				}
 			}
 
@@ -251,8 +251,8 @@ void VertexCM::runIteration(int iter)
 
 				//fprintf(fp , "%d\n" , query.mergeNum);
 
-				//color = color + (cameraState.throughput | query.contrib) *
-				//	vmNormalization;
+				color = color + (cameraState.throughput | query.contrib) *
+					vmNormalization;
 			}
 
 			if (!sampleScattering(bsdf , hitPos , cameraState))

@@ -10,6 +10,7 @@
 #include "surfaceIntegrator/multipleMerge.h"
 #include <opencv2/opencv.hpp>
 #include "tinyxml/tinyxml.h"
+#include <ctime>
 
 Parameters para;
 SurfaceIntegrator *integrator;
@@ -23,7 +24,9 @@ MultipleMerge multipleMerge;
 
 int main(int argc , char* argv[])
 {
+	clock_t start , end;
 	para.load_parameters("src/parameters.para");
+	start = clock();
 	if (!strcmp(argv[3] , "-r"))
 	{
 		whitted.init(argv[1] , para);
@@ -71,5 +74,8 @@ int main(int argc , char* argv[])
 	{
 		printf("error!\n");
 	}
+	end = clock();
+	FILE *fp = fopen("time.txt" , "w");
+	fprintf(fp , "time = %d\n" , end - start);
 	return 0;
 }

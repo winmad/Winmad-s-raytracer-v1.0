@@ -12,7 +12,7 @@ void MultipleMerge::init(char *filename , Parameters& para)
 
 	scene.init(filename , para);
 
-	baseRadius = 0.006f * scene.sceneSphere.sceneRadius;
+	baseRadius = 0.004f * scene.sceneSphere.sceneRadius;
 	radiusAlpha = 0.75f;
 
 	height = para.HEIGHT; width = para.WIDTH;
