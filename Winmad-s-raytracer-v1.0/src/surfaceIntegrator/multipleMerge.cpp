@@ -12,7 +12,7 @@ void MultipleMerge::init(char *filename , Parameters& para)
 
 	scene.init(filename , para);
 
-	baseRadius = 0.004f * scene.sceneSphere.sceneRadius;
+	baseRadius = 0.005f * scene.sceneSphere.sceneRadius;
 	radiusAlpha = 0.75f;
 
 	height = para.HEIGHT; width = para.WIDTH;
@@ -23,6 +23,9 @@ void MultipleMerge::init(char *filename , Parameters& para)
 
 void MultipleMerge::render()
 {
+	Real mergeRadius = baseRadius;
+	preparation(mergeRadius);
+
 	for (int iter = 0; iter < iterations; iter++)
 		runIteration(iter);
 }
@@ -43,25 +46,24 @@ void MultipleMerge::outputImage(char *filename)
 			*/
 		}
 	}
-	film->outputImage(filename , 1.f / iterations , 2.2f);
+
+	Real samplesPerPixel = cameraPathNum / pixelNum;
+	film->outputImage(filename , 1.f / samplesPerPixel / iterations , 2.2f);
 }
 
-void MultipleMerge::runIteration(int iter)
+void MultipleMerge::preparation(double mergeRadius)
 {
 	lightPathNum = height * width;
 	interPathNum = lightPathNum;
-	cameraPathNum = lightPathNum;
 
-	partialPathNum = lightPathNum;
+	partialPathNum = interPathNum;
 
-	radius = baseRadius;
-	radius /= std::pow((Real)(iter + 1) , 0.5f * (1.f - radiusAlpha));
-	radius = std::max(radius , EPS);
+	radius = mergeRadius;
 	Real radiusSqr = SQR(radius);
 
-	lightSubPaths.clear();
-
 	mergeKernel = 1.f / (PI * radiusSqr * partialPathNum);
+
+	lightSubPaths.clear();
 
 	// generating light paths
 	for (int pathIndex = 0; pathIndex < lightPathNum; pathIndex++)
@@ -88,7 +90,7 @@ void MultipleMerge::runIteration(int iter)
 
 			if (!bsdf.isDelta)
 			{
-                // store subpath data
+				// store subpath data
 				lightSubPaths.push_back(lightState);
 			}
 
@@ -152,11 +154,11 @@ void MultipleMerge::runIteration(int iter)
 
 
 	// multiple merge between light paths and intermediate paths
-	
+
 	std::vector<Color3> contribs;
 	contribs.resize(lightSubPaths.size());
 
-	int mergeIterations = 10;
+	int mergeIterations = 1;
 
 	for (int mergeIter = 0; mergeIter < mergeIterations; mergeIter++)
 	{
@@ -169,7 +171,7 @@ void MultipleMerge::runIteration(int iter)
 			lightTree->searchInRadius(0 , query.lightSubPath.posAtOrigin , 
 				radius , query);
 
-			fprintf(fp , "%d\n" , query.mergeNum);
+			//fprintf(fp , "%d\n" , query.mergeNum);
 
 			Color3 color = (lightSubPaths[i].throughput | query.contrib);
 
@@ -181,17 +183,29 @@ void MultipleMerge::runIteration(int iter)
 
 		delete lightTree;
 	}
+}
+
+void MultipleMerge::runIteration(int iter)
+{
+	cameraPathNum = height * width;
+
+	radius = baseRadius;
+	radius /= std::pow((Real)(iter + 1) , 0.5f * (1.f - radiusAlpha));
+	radius = std::max(radius , EPS);
+	Real radiusSqr = SQR(radius);
+
+	mergeKernel = 1.f / (PI * radiusSqr * partialPathNum);
 
 	lightTree = new KdTree<MMPathState>(lightSubPaths);
 
 	//debug
-// 	for (int i = 0; i < lightSubPaths.size(); i++)
-// 	{
-// 		MMPathState& subPath = lightSubPaths[i];
-// 		fprintf(fp , "dirC=(%.4f,%.4f,%.4f),indirC=(%.4f,%.4f,%.4f)\n" ,
-// 			subPath.dirContrib.r , subPath.dirContrib.g , subPath.dirContrib.b ,
-// 			subPath.indirContrib.r , subPath.indirContrib.g , subPath.indirContrib.b);
-// 	}
+	for (int i = 0; i < lightSubPaths.size(); i++)
+	{
+		MMPathState& subPath = lightSubPaths[i];
+		fprintf(fp , "dirC=(%.4f,%.4f,%.4f),indirC=(%.4f,%.4f,%.4f)\n" ,
+			subPath.dirContrib.r , subPath.dirContrib.g , subPath.dirContrib.b ,
+			subPath.indirContrib.r , subPath.indirContrib.g , subPath.indirContrib.b);
+	}
 
 	// generating camera paths
 	for (int index = 0; index < cameraPathNum; index++)
@@ -251,17 +265,17 @@ void MultipleMerge::runIteration(int iter)
 				//fprintf(fp , "%d\n" , query.mergeNum);
 			}
 
-			color = color + (cameraState.throughput | query.contrib) * 
-				mergeKernel;
-
-			if (!sampleScattering(bsdf , hitPos , cameraState))
-				break;
-
 			Real weightFactor = (1 - cameraState.totWeight) * 
 				clampVal(gatherFactor(query.mergeNum , bsdf.glossyIndex) , 0.f , 1.f);
 
 			cameraState.weight = weightFactor;
 			cameraState.totWeight += cameraState.weight;
+
+			color = color + (cameraState.throughput | query.contrib) * 
+				mergeKernel;
+
+			if (!sampleScattering(bsdf , hitPos , cameraState))
+				break;
 		}
 
 		film->addColor((int)screenSample.x , (int)screenSample.y , color);

@@ -95,24 +95,22 @@ public:
 
 			Real pdf = bsdfDirPdf;
 
-			if (cmp(dist.length()) == 0)
-			{
-				// connect
-				weightFactor = multipleMerge.connectFactor(pdf) / 
-					(multipleMerge.connectFactor(pdf) + 
-					multipleMerge.mergeFactor());
-
-				weightFactor *= cosTerm / bsdfDirPdf;
-			}
-			else
+// 			if (cmp(dist.length()) == 0)
+// 			{
+// 				// connect
+// 				weightFactor = multipleMerge.connectFactor(pdf) / 
+// 					(multipleMerge.connectFactor(pdf) + 
+// 					multipleMerge.mergeFactor());
+// 
+// 				weightFactor *= cosTerm / bsdfDirPdf;
+// 			}
+// 			else
 			{
 				// merge
 				weightFactor = multipleMerge.mergeFactor()
 					/ (multipleMerge.connectFactor(pdf) + 
 					multipleMerge.mergeFactor());
 				weightFactor *= multipleMerge.mergeKernel;
-		        //weightFactor /= lightSubPath.lastPdf;
-                //weightFactor /= multipleMerge.mergeKernel / PI * 0.5f;
 			}
 			
 			mergeNum++;
@@ -137,6 +135,8 @@ public:
 	MultipleMerge() {}
 
 	void init(char *filename , Parameters& para);
+
+	void preparation(double mergeRadius);
 
 	void runIteration(int iter);
 
