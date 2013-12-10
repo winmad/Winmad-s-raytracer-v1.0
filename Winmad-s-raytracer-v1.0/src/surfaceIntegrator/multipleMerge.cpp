@@ -12,7 +12,7 @@ void MultipleMerge::init(char *filename , Parameters& para)
 
 	scene.init(filename , para);
 
-	baseRadius = 0.005f * scene.sceneSphere.sceneRadius;
+	baseRadius = 0.003f * scene.sceneSphere.sceneRadius;
 	radiusAlpha = 0.75f;
 
 	height = para.HEIGHT; width = para.WIDTH;
@@ -47,8 +47,7 @@ void MultipleMerge::outputImage(char *filename)
 		}
 	}
 
-	Real samplesPerPixel = cameraPathNum / pixelNum;
-	film->outputImage(filename , 1.f / samplesPerPixel / iterations , 2.2f);
+	film->outputImage(filename , 1.f / iterations , 2.2f);
 }
 
 void MultipleMerge::preparation(double mergeRadius)
@@ -56,7 +55,7 @@ void MultipleMerge::preparation(double mergeRadius)
 	lightPathNum = height * width;
 	interPathNum = lightPathNum;
 
-	partialPathNum = interPathNum;
+	partialPathNum = lightPathNum;
 
 	radius = mergeRadius;
 	Real radiusSqr = SQR(radius);
@@ -158,7 +157,7 @@ void MultipleMerge::preparation(double mergeRadius)
 	std::vector<Color3> contribs;
 	contribs.resize(lightSubPaths.size());
 
-	int mergeIterations = 1;
+	int mergeIterations = 2;
 
 	for (int mergeIter = 0; mergeIter < mergeIterations; mergeIter++)
 	{
@@ -205,6 +204,21 @@ void MultipleMerge::runIteration(int iter)
 		fprintf(fp , "dirC=(%.4f,%.4f,%.4f),indirC=(%.4f,%.4f,%.4f)\n" ,
 			subPath.dirContrib.r , subPath.dirContrib.g , subPath.dirContrib.b ,
 			subPath.indirContrib.r , subPath.indirContrib.g , subPath.indirContrib.b);
+	}
+
+	for (int i = 0; i < lightSubPaths.size(); i++)
+	{
+		MMPathState& lightState = lightSubPaths[i];
+		if (lightState.pathLength + 1 >= minPathLength)
+		{
+			Vector3 imagePos = scene.camera.worldToRaster.tPoint(lightState.pos);
+			if (scene.camera.checkRaster(imagePos.x , imagePos.y))
+			{
+				Color3 res = connectToCamera(lightState , lightState.pos , lightState.bsdf);
+
+				film->addColor((int)imagePos.x , (int)imagePos.y , res);
+			}
+		}
 	}
 
 	// generating camera paths
@@ -270,6 +284,15 @@ void MultipleMerge::runIteration(int iter)
 
 			cameraState.weight = weightFactor;
 			cameraState.totWeight += cameraState.weight;
+
+			if (!bsdf.isDelta)
+			{
+				if (cameraState.pathLength + 1 >= minPathLength)
+				{
+					color = color + (cameraState.throughput |
+						getDirectIllumination(cameraState , hitPos , bsdf));
+				}
+			}
 
 			color = color + (cameraState.throughput | query.contrib) * 
 				mergeKernel;
@@ -375,7 +398,9 @@ Color3 MultipleMerge::connectToCamera(MMPathState& lightState ,
 
 	Real surfaceToImageFactor = 1.f / imageToSurfaceFactor;
 
-	res = (lightState.dirContrib | bsdfFactor) /
+	Color3 totContrib = lightState.dirContrib + lightState.indirContrib;
+
+	res = (totContrib | bsdfFactor) /
 		(lightPathNum * surfaceToImageFactor);
     
 	if (res.isBlack())
