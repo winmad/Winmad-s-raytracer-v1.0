@@ -17,6 +17,7 @@ public:
 	virtual int getMatId();
 	virtual bool hit(const Ray& ray , Intersection& inter);
 	virtual Real getArea();
+	virtual Vector3 samplePos(const Vector3& samples , Vector3& normal);
 };
 
 #endif

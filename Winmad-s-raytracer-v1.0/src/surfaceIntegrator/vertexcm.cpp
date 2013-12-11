@@ -4,7 +4,7 @@ void VertexCM::init(char *filename , Parameters& para)
 {
 	minPathLength = 0;
 	maxPathLength = 10;
-	iterations = 10;
+	iterations = 1;
 
 	samplesPerPixel = para.SAMPLES_PER_PIXEL;
 	
@@ -57,7 +57,8 @@ void VertexCM::runIteration(int iter)
 
 	Real etaVCM = (PI * radiusSqr) * lightSubPathNum;
 	misVmWeightFactor = mis(etaVCM);
-	misVcWeightFactor = mis(1.f / etaVCM);
+	//misVcWeightFactor = mis(1.f / etaVCM);
+	misVcWeightFactor = 0.f;
 
 	pathEnds.resize(pathNum);
 	memset(&pathEnds[0] , 0 , pathEnds.size() * sizeof(int));
@@ -121,7 +122,7 @@ void VertexCM::runIteration(int iter)
 					if (scene.camera.checkRaster(imagePos.x , imagePos.y))
 					{
 						Color3 res = connectToCamera(lightState , hitPos , bsdf);
-						film->addColor((int)imagePos.x , (int)imagePos.y , res);
+						//film->addColor((int)imagePos.x , (int)imagePos.y , res);
 					}
 				}
 			}
@@ -190,7 +191,8 @@ void VertexCM::runIteration(int iter)
 			{
 				AbstractLight *light = scene.lights[-inter.matId - 1];
 
-				if (cameraState.pathLength >= minPathLength)
+				if (cameraState.pathLength >= minPathLength
+					&& cameraState.specularPath) // bpm
 				{
 					color = color + (cameraState.throughput |
 						getLightRadiance(light , cameraState , 
@@ -207,8 +209,8 @@ void VertexCM::runIteration(int iter)
 			{
 				if (cameraState.pathLength + 1 >= minPathLength)
 				{
-					color = color + (cameraState.throughput |
-						getDirectIllumination(cameraState , hitPos , bsdf));
+					//color = color + (cameraState.throughput |
+					//	getDirectIllumination(cameraState , hitPos , bsdf));
 				}
 			}
 
@@ -237,8 +239,8 @@ void VertexCM::runIteration(int iter)
 					Color3 tmp = connectVertices(lightVertex ,
 						bsdf , hitPos , cameraState);
 
-					color = color + (cameraState.throughput |
-						lightVertex.throughput | tmp);
+					//color = color + (cameraState.throughput |
+					//	lightVertex.throughput | tmp);
 				}
 			}
 

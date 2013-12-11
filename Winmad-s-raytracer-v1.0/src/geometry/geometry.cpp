@@ -20,3 +20,9 @@ Real Geometry::getArea()
 {
 	return 0.f;
 }
+
+Vector3 Geometry::samplePos(const Vector3& samples , Vector3& normal)
+{
+	normal = Vector3(0.f);
+	return Vector3(0.f);
+}

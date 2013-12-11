@@ -157,7 +157,7 @@ void MultipleMerge::preparation(double mergeRadius)
 	std::vector<Color3> contribs;
 	contribs.resize(lightSubPaths.size());
 
-	int mergeIterations = 2;
+	int mergeIterations = 1;
 
 	for (int mergeIter = 0; mergeIter < mergeIterations; mergeIter++)
 	{
@@ -216,7 +216,7 @@ void MultipleMerge::runIteration(int iter)
 			{
 				Color3 res = connectToCamera(lightState , lightState.pos , lightState.bsdf);
 
-				film->addColor((int)imagePos.x , (int)imagePos.y , res);
+				//film->addColor((int)imagePos.x , (int)imagePos.y , res);
 			}
 		}
 	}
@@ -289,8 +289,8 @@ void MultipleMerge::runIteration(int iter)
 			{
 				if (cameraState.pathLength + 1 >= minPathLength)
 				{
-					color = color + (cameraState.throughput |
-						getDirectIllumination(cameraState , hitPos , bsdf));
+					//color = color + (cameraState.throughput |
+					//	getDirectIllumination(cameraState , hitPos , bsdf));
 				}
 			}
 
@@ -337,6 +337,7 @@ void MultipleMerge::generateLightSample(MMPathState& lightState)
 
 void MultipleMerge::generateInterSample(MMPathState& interState)
 {
+	/*
 	int lightVertexNum = lightSubPaths.size();
 	int vertexId = int(rng.randFloat() * lightVertexNum);
 	MMPathState lightState = lightSubPaths[vertexId];
@@ -347,14 +348,29 @@ void MultipleMerge::generateInterSample(MMPathState& interState)
 
 	Vector3 dx = lightState.bsdf.localFrame.binormal();
 	Vector3 dy = lightState.bsdf.localFrame.tangent();
+	*/
 
-	interState.posAtOrigin = lightState.pos + dx * r * std::cos(theta) +
-		dy * r * std::sin(theta);
+	int objNum = scene.objs.size();
+	int objId; 
+	for (;;)
+	{
+		objId = int(rng.randFloat() * objNum);
+		int matId = scene.objs[objId]->getMatId();
+		if (scene.materials[matId].specular.isBlack())
+			break;
+	}
+
+	Vector3 normal;
+	interState.posAtOrigin = scene.objs[objId]->samplePos(rng.randVector3() , normal);
+	//interState.posAtOrigin = lightState.pos + dx * r * std::cos(theta) +
+	//	dy * r * std::sin(theta);
 
 	Real p = 0;
 	Vector3 localDir = sampleUniformHemisphere(rng.randVector3() , &p);
 
-	interState.dirAtOrigin = lightState.bsdf.localFrame.localToWorld(localDir);
+	Frame localFrame;
+	localFrame.buildFromZ(normal);
+	interState.dirAtOrigin = localFrame.localToWorld(localDir);
 
 	interState.throughput = Color3(1.f);
 	interState.pathLength = 1;

@@ -1,4 +1,5 @@
 #include "triangle.h"
+#include "../sampler/sampler.h"
 
 int Triangle::getMatId()
 {
@@ -9,6 +10,13 @@ Real Triangle::getArea()
 {
 	Vector3 n = (p1 - p0) * (p2 - p0);
 	return 0.5f * n.length();
+}
+
+Vector3 Triangle::samplePos(const Vector3& samples , Vector3& normal)
+{
+	normal = (p1 - p0) * (p2 - p0);
+	normal.normalize();
+	return sampleTriangle(samples , p0 , p1 , p2);
 }
 
 bool Triangle::hit(const Ray& ray , Intersection& inter)

@@ -5,6 +5,15 @@ int Sphere::getMatId()
 	return matId;
 }
 
+Vector3 Sphere::samplePos(const Vector3& samples , Vector3& normal)
+{
+	Real theta = samples.x * PI;
+	Real phi = samples.y * PI;
+	normal = Vector3(std::sin(theta) * std::cos(phi) , 
+		std::sin(theta) * std::sin(phi) , std::cos(theta));
+	return center + normal * radius;
+}
+
 bool Sphere::hit(const Ray& ray , Intersection& inter)
 {
 	Real tmp1 , tmp2;

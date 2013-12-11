@@ -42,6 +42,8 @@ public:
 	}
 
 	bool hit(const Ray& ray , Intersection& inter);
+
+	Vector3 samplePos(const Vector3& samples , Vector3& normal);
 };
 
 #endif
