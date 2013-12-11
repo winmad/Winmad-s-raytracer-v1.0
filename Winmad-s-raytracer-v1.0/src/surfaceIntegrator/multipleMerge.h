@@ -54,8 +54,13 @@ public:
 			cameraBsdfDirPdf *= cameraSubPath.bsdf.continueProb;
 			cameraBsdfRevPdf *= lightSubPath.bsdf.continueProb;
             
+			Real weightFactor = multipleMerge.mergeFactor() /
+				(multipleMerge.connectFactor(cameraBsdfRevPdf) + 
+				multipleMerge.mergeFactor());
+			weightFactor *= multipleMerge.mergeKernel;
+
 			Color3 totContrib = lightSubPath.dirContrib + lightSubPath.indirContrib;
-			contrib = contrib + (cameraBsdfFactor | totContrib);
+			contrib = contrib + (cameraBsdfFactor | totContrib) * weightFactor;
 		}
 	};
 
@@ -152,7 +157,8 @@ public:
 		BSDF& bsdf);
 
 	bool sampleScattering(BSDF& bsdf , const Vector3& hitPos , 
-		MMPathState& pathState , Real *_bsdfDirPdf = NULL);
+		MMPathState& pathState , Real *_bsdfDirPdf , 
+		bool isCameraPath);
 
 	Vector3 generateCameraSample(const int pathIndex , 
 		MMPathState& cameraState);

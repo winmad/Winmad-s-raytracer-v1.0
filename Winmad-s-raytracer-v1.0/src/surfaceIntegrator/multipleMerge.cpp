@@ -6,7 +6,7 @@ void MultipleMerge::init(char *filename , Parameters& para)
 {
 	minPathLength = 0;
 	maxPathLength = 10;
-	iterations = 1;
+	iterations = 10;
 
 	samplesPerPixel = para.SAMPLES_PER_PIXEL;
 
@@ -23,9 +23,6 @@ void MultipleMerge::init(char *filename , Parameters& para)
 
 void MultipleMerge::render()
 {
-	Real mergeRadius = baseRadius;
-	preparation(mergeRadius);
-
 	for (int iter = 0; iter < iterations; iter++)
 		runIteration(iter);
 }
@@ -53,7 +50,7 @@ void MultipleMerge::outputImage(char *filename)
 void MultipleMerge::preparation(double mergeRadius)
 {
 	lightPathNum = height * width;
-	interPathNum = lightPathNum;
+	interPathNum = 0;
 
 	partialPathNum = lightPathNum;
 
@@ -97,7 +94,7 @@ void MultipleMerge::preparation(double mergeRadius)
 				break;
 
 			Real pdf = 0.f;
-			if (!sampleScattering(bsdf , hitPos , lightState , &pdf))
+			if (!sampleScattering(bsdf , hitPos , lightState , &pdf , 0))
 				break;
 
 			Real weightFactor = connectFactor(pdf) / (connectFactor(pdf) +
@@ -141,7 +138,7 @@ void MultipleMerge::preparation(double mergeRadius)
 				break;
 
 			Real pdf = 0.f;
-			if (!sampleScattering(bsdf , hitPos , interState , &pdf))
+			if (!sampleScattering(bsdf , hitPos , interState , &pdf , 0))
 				break;
 
 			Real weightFactor = connectFactor(pdf) / (connectFactor(pdf) +
@@ -157,7 +154,7 @@ void MultipleMerge::preparation(double mergeRadius)
 	std::vector<Color3> contribs;
 	contribs.resize(lightSubPaths.size());
 
-	int mergeIterations = 1;
+	int mergeIterations = 0;
 
 	for (int mergeIter = 0; mergeIter < mergeIterations; mergeIter++)
 	{
@@ -193,18 +190,20 @@ void MultipleMerge::runIteration(int iter)
 	radius = std::max(radius , EPS);
 	Real radiusSqr = SQR(radius);
 
+	preparation(radius);
+
 	mergeKernel = 1.f / (PI * radiusSqr * partialPathNum);
 
 	lightTree = new KdTree<MMPathState>(lightSubPaths);
 
 	//debug
-	for (int i = 0; i < lightSubPaths.size(); i++)
-	{
-		MMPathState& subPath = lightSubPaths[i];
-		fprintf(fp , "dirC=(%.4f,%.4f,%.4f),indirC=(%.4f,%.4f,%.4f)\n" ,
-			subPath.dirContrib.r , subPath.dirContrib.g , subPath.dirContrib.b ,
-			subPath.indirContrib.r , subPath.indirContrib.g , subPath.indirContrib.b);
-	}
+// 	for (int i = 0; i < lightSubPaths.size(); i++)
+// 	{
+// 		MMPathState& subPath = lightSubPaths[i];
+// 		fprintf(fp , "dirC=(%.4f,%.4f,%.4f),indirC=(%.4f,%.4f,%.4f)\n" ,
+// 			subPath.dirContrib.r , subPath.dirContrib.g , subPath.dirContrib.b ,
+// 			subPath.indirContrib.r , subPath.indirContrib.g , subPath.indirContrib.b);
+// 	}
 
 	for (int i = 0; i < lightSubPaths.size(); i++)
 	{
@@ -216,7 +215,7 @@ void MultipleMerge::runIteration(int iter)
 			{
 				Color3 res = connectToCamera(lightState , lightState.pos , lightState.bsdf);
 
-				//film->addColor((int)imagePos.x , (int)imagePos.y , res);
+				film->addColor((int)imagePos.x , (int)imagePos.y , res);
 			}
 		}
 	}
@@ -279,26 +278,25 @@ void MultipleMerge::runIteration(int iter)
 				//fprintf(fp , "%d\n" , query.mergeNum);
 			}
 
-			Real weightFactor = (1 - cameraState.totWeight) * 
-				clampVal(gatherFactor(query.mergeNum , bsdf.glossyIndex) , 0.f , 1.f);
-
-			cameraState.weight = weightFactor;
-			cameraState.totWeight += cameraState.weight;
-
 			if (!bsdf.isDelta)
 			{
 				if (cameraState.pathLength + 1 >= minPathLength)
 				{
-					//color = color + (cameraState.throughput |
-					//	getDirectIllumination(cameraState , hitPos , bsdf));
+					color = color + (cameraState.throughput |
+						getDirectIllumination(cameraState , hitPos , bsdf));
 				}
 			}
 
-			color = color + (cameraState.throughput | query.contrib) * 
-				mergeKernel;
+			color = color + (cameraState.throughput | query.contrib);
 
-			if (!sampleScattering(bsdf , hitPos , cameraState))
+			Real pdf = 0;
+			if (!sampleScattering(bsdf , hitPos , cameraState , &pdf , 1))
 				break;
+
+			Real weightFactor = connectFactor(pdf) / (connectFactor(pdf) +
+				mergeFactor());
+
+			cameraState.throughput = cameraState.throughput * weightFactor;
 		}
 
 		film->addColor((int)screenSample.x , (int)screenSample.y , color);
@@ -435,10 +433,9 @@ Color3 MultipleMerge::connectToCamera(MMPathState& lightState ,
 }
 
 bool MultipleMerge::sampleScattering(BSDF& bsdf , 
-	const Vector3& hitPos , MMPathState& pathState , Real *_bsdfDirPdf)
+	const Vector3& hitPos , MMPathState& pathState , Real *_bsdfDirPdf ,
+	bool isCameraPath)
 {
-	if (_bsdfDirPdf)
-		*_bsdfDirPdf = 0.f;
 	Real bsdfDirPdf , cosWo;
 	int sampledBSDFType;
 	Color3 bsdfFactor = bsdf.sample(scene , rng.randVector3() ,
@@ -461,25 +458,37 @@ bool MultipleMerge::sampleScattering(BSDF& bsdf ,
 	// Partial sub-path MIS quantities
 	// the evaluation is completed when the actual hit point is known!
 	// i.e. after tracing the ray, out of the procedure
+	
+	pathState.origin = hitPos;
+
+	if (isCameraPath)
+	{
+		pathState.throughput = (pathState.throughput | bsdfFactor) *
+			(std::abs(bsdf.cosWi()) / bsdfRevPdf);
+
+		*_bsdfDirPdf = bsdfRevPdf;
+	}
+	else 
+	{
+		pathState.throughput = (pathState.throughput | bsdfFactor) *
+			(cosWo / bsdfDirPdf);
+
+		pathState.dirContrib = (pathState.dirContrib | bsdfFactor) *
+			(cosWo / bsdfDirPdf);
+		
+		*_bsdfDirPdf = bsdfDirPdf;
+	}
+
 	if (sampledBSDFType & BSDF_SPECULAR)
 	{
 		pathState.specularPath &= 1;
+		*_bsdfDirPdf = INF;
 	}
 	else
 	{
 		pathState.specularPath &= 0;
 	}
-
-	pathState.origin = hitPos;
-
-	pathState.throughput = (pathState.throughput | bsdfFactor) *
-		(cosWo / bsdfDirPdf);
-
-	pathState.dirContrib = (pathState.dirContrib | bsdfFactor) *
-		(cosWo / bsdfDirPdf);
-
-	if (_bsdfDirPdf)
-		*_bsdfDirPdf = bsdfDirPdf;
+	
 	return 1;
 }
 
