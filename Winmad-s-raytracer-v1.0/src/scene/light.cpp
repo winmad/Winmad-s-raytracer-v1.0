@@ -48,7 +48,14 @@ Color3 AreaLight::emit(const SceneSphere& sceneSphere ,
 		*cosAtLight = 0;
 
 	pos = sampleTriangle(posRand3 ,p0 , p0 + d1 , p0 + d2);
-	Vector3 localDirOut = sampleCosHemisphere(dirRand3 , &emissionPdf);
+
+	Vector3 localDirOut;
+	for (;;)
+	{
+		localDirOut = sampleCosHemisphere(dirRand3 , &emissionPdf);
+		if (emissionPdf > 0.f)
+			break;
+	}
 	emissionPdf *= invArea;
 
 	localDirOut.z = std::max(localDirOut.z , EPS);

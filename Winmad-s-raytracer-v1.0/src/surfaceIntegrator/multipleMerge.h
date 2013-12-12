@@ -13,8 +13,7 @@ struct MMPathState
 	Color3 dirContrib , indirContrib;
 	Vector3 posAtOrigin , dirAtOrigin;
 
-	Real weight;
-	Real totWeight;
+	int index;
 
 	int pathLength : 30;
 	int specularPath : 1;
@@ -55,7 +54,7 @@ public:
 			cameraBsdfRevPdf *= lightSubPath.bsdf.continueProb;
             
 			Real weightFactor = multipleMerge.mergeFactor() /
-				(multipleMerge.connectFactor(cameraBsdfRevPdf) + 
+				(multipleMerge.connectFactor(cameraBsdfRevPdf , cameraSubPath.bsdf.glossyIndex) + 
 				multipleMerge.mergeFactor());
 			weightFactor *= multipleMerge.mergeKernel;
 
@@ -113,7 +112,7 @@ public:
 			{
 				// merge
 				weightFactor = multipleMerge.mergeFactor()
-					/ (multipleMerge.connectFactor(pdf) + 
+					/ (multipleMerge.connectFactor(pdf , subPath.bsdf.glossyIndex) + 
 					multipleMerge.mergeFactor());
 				weightFactor *= multipleMerge.mergeKernel;
 			}
@@ -176,7 +175,7 @@ public:
 		return pdf;
 	}
 
-	Real connectFactor(Real pdf)
+	Real connectFactor(Real pdf , Real glossyIndex)
 	{
 		return mis(pdf);
 	}

@@ -280,6 +280,7 @@ void VertexCM::generateLightSample(SubPathState& lightState)
 		lightState.pathOrigin , lightState.dir , emissionPdf ,
 		&directPdf , &cosAtLight);
 
+	emissionPdf = std::max(emissionPdf , 1e-7f);
 	emissionPdf *= lightPickProb;
 	directPdf *= lightPickProb;
 
