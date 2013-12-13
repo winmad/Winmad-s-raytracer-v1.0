@@ -13,8 +13,6 @@ struct MMPathState
 	Color3 dirContrib , indirContrib;
 	Vector3 posAtOrigin , dirAtOrigin;
 
-	int index;
-
 	int pathLength : 30;
 	int specularPath : 1;
 	int isFiniteLight : 1;

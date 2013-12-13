@@ -6,7 +6,7 @@ void MultipleMerge::init(char *filename , Parameters& para)
 {
 	minPathLength = 0;
 	maxPathLength = 10;
-	iterations = 10;
+	iterations = 15;
 
 	samplesPerPixel = para.SAMPLES_PER_PIXEL;
 
@@ -38,8 +38,9 @@ void MultipleMerge::outputImage(char *filename)
 			film->color[j][i] = tmp;
 			
 			tmp = film->color[i][j];
-			//fprintf(fp , "c(%d,%d)=(%.3f,%.3f,%.3f)\n" , i , j ,
-			//	tmp.r , tmp.g , tmp.b);
+			fprintf(fp , "c(%d,%d)=(%.3f,%.3f,%.3f)\n" , i , j ,
+				tmp.r , tmp.g , tmp.b);
+			
 		}
 	}
 
@@ -209,11 +210,14 @@ void MultipleMerge::runIteration(int iter)
 	for (int index = 0; index < cameraPathNum; index++)
 	{
 		int pathIndex = index % (height * width);
-		int flag(0);
 
 		MMPathState cameraState;
 		Vector3 screenSample = generateCameraSample(pathIndex , cameraState);
-
+		/*
+		std::vector<Color3> contribs;
+		std::vector<Real> weights;
+		weights.push_back(1.f);
+		*/
 		Color3 color(0);
 
 		for (;; cameraState.pathLength++)
@@ -254,6 +258,8 @@ void MultipleMerge::runIteration(int iter)
 			if (cameraState.pathLength >= maxPathLength)
 				break;
 
+			Color3 tmp(0.f);
+
 			// vertex merge
 			GatherQuery query(*this , cameraState);
 			if (!bsdf.isDelta)
@@ -263,7 +269,9 @@ void MultipleMerge::runIteration(int iter)
 
 				//fprintf(fp , "%d\n" , query.mergeNum);
 
-				color = color + (cameraState.throughput | query.contrib);
+				Color3 tmp = tmp + cameraState.throughput | query.contrib;
+
+				color = color + tmp;
 			}
 
 			// vertex connect
@@ -271,11 +279,17 @@ void MultipleMerge::runIteration(int iter)
 			{
 				if (cameraState.pathLength + 1 >= minPathLength)
 				{
-					color = color + (cameraState.throughput |
-						getDirectIllumination(cameraState , hitPos , bsdf));
+					tmp = tmp + getDirectIllumination(cameraState , hitPos , bsdf)
+						* std::exp(-3.f * bsdf.glossyIndex);
+					color = color + (cameraState.throughput | tmp);
 				}
 			}
-
+			/*
+			if (!bsdf.isDelta)
+			{
+				contribs.push_back(tmp);
+			}
+			*/
 			Real pdf = 0;
 			if (!sampleScattering(bsdf , hitPos , cameraState , &pdf , 1))
 				break;
@@ -283,9 +297,28 @@ void MultipleMerge::runIteration(int iter)
 			Real weightFactor = connectFactor(pdf , bsdf.glossyIndex) / 
 				(connectFactor(pdf , bsdf.glossyIndex) + mergeFactor());
 
+			/*
+			if (!bsdf.isDelta)
+			{
+				weights.push_back(weightFactor);
+			}
+			*/
 			cameraState.throughput = cameraState.throughput * weightFactor;
 		}
+		/*
+		Real totWeight = 0.f;
+		for (int i = 0; i < weights.size(); i++)
+		{
+			totWeight += weights[i];
+		}
 
+		for (int i = 0; i < contribs.size(); i++)
+		{
+			Real weightFactor = 2.f / totWeight;
+			Color3 tmp = contribs[i] * weightFactor;
+			color = color + tmp;
+		}
+		*/
 		film->addColor((int)screenSample.x , (int)screenSample.y , color);
 	}
 
@@ -301,11 +334,18 @@ void MultipleMerge::generateLightSample(MMPathState& lightState)
 	AbstractLight *light = scene.lights[lightId];
 
 	Real emissionPdf , directPdf , cosAtLight;
-	Color3 radiance = light->emit(scene.sceneSphere ,
-		rng.randVector3() , rng.randVector3() , 
-		lightState.origin , lightState.dir , emissionPdf ,
-		&directPdf , &cosAtLight);
+	Color3 radiance;
 
+	for (;;)
+	{
+		radiance = light->emit(scene.sceneSphere ,
+			rng.randVector3() , rng.randVector3() , 
+			lightState.origin , lightState.dir , emissionPdf ,
+			&directPdf , &cosAtLight);
+		if (emissionPdf > 1e-7f)
+			break;
+	}
+	
 	emissionPdf = std::max(emissionPdf , 1e-7f);
 	emissionPdf *= lightPickProb;
 	directPdf *= lightPickProb;
