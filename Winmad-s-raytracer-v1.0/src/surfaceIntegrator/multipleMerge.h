@@ -134,6 +134,8 @@ public:
 
 	KdTree<MMPathState> *lightTree;
 
+	std::vector<std::vector<int> > prevSubPaths;
+
 	MultipleMerge() {}
 
 	void init(char *filename , Parameters& para);

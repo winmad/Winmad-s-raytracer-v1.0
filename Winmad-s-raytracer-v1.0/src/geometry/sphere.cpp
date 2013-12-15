@@ -24,9 +24,14 @@ bool Sphere::hit(const Ray& ray , Intersection& inter)
  	}
 
 	Vector3 oc = center - ray.origin;
+
+	bool insideFlag = 0;
+	if (oc.length() < radius + EPS)
+		insideFlag = 1;
+
 	Real l_oc = oc ^ oc;
 	Real t_ca = oc ^ ray.dir;
-	if (cmp(t_ca) < 0)
+	if (cmp(t_ca) < 0 && !insideFlag)
 	{
 		inter.t = INF;
 		return 0;

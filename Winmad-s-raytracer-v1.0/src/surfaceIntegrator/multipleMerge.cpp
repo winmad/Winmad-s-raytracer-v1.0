@@ -6,7 +6,7 @@ void MultipleMerge::init(char *filename , Parameters& para)
 {
 	minPathLength = 0;
 	maxPathLength = 10;
-	iterations = 15;
+	iterations = 1;
 
 	samplesPerPixel = para.SAMPLES_PER_PIXEL;
 
@@ -97,11 +97,14 @@ void MultipleMerge::preparation(double mergeRadius)
 			if (!sampleScattering(bsdf , hitPos , lightState , &pdf , 0))
 				break;
 
-			Real weightFactor = connectFactor(pdf , bsdf.glossyIndex) / 
-				(connectFactor(pdf , bsdf.glossyIndex) + mergeFactor());
+			if (!bsdf.isDelta)
+			{
+				Real weightFactor = connectFactor(pdf , bsdf.glossyIndex) / 
+					(connectFactor(pdf , bsdf.glossyIndex) + mergeFactor());
 
-			lightState.throughput = lightState.throughput * weightFactor;
-			lightState.dirContrib = lightState.dirContrib * weightFactor;
+				lightState.throughput = lightState.throughput * weightFactor;
+				lightState.dirContrib = lightState.dirContrib * weightFactor;
+			}
 		}
 	}
 
@@ -141,13 +144,15 @@ void MultipleMerge::preparation(double mergeRadius)
 			if (!sampleScattering(bsdf , hitPos , interState , &pdf , 0))
 				break;
 
-			Real weightFactor = connectFactor(pdf , bsdf.glossyIndex) / 
-				(connectFactor(pdf , bsdf.glossyIndex) + mergeFactor());
+			if (!bsdf.isDelta)
+			{
+				Real weightFactor = connectFactor(pdf , bsdf.glossyIndex) / 
+					(connectFactor(pdf , bsdf.glossyIndex) + mergeFactor());
 
-			interState.throughput = interState.throughput * weightFactor;
+				interState.throughput = interState.throughput * weightFactor;
+			}
 		}
 	}
-
 
 	// multiple merge between light paths and intermediate paths
 
@@ -200,8 +205,7 @@ void MultipleMerge::runIteration(int iter)
 // 	for (int i = 0; i < lightSubPaths.size(); i++)
 // 	{
 // 		MMPathState& subPath = lightSubPaths[i];
-// 		fprintf(fp , "index=%d,dirC=(%.4f,%.4f,%.4f),indirC=(%.4f,%.4f,%.4f)\n" ,
-// 			subPath.index ,
+// 		fprintf(fp , "dirC=(%.4f,%.4f,%.4f),indirC=(%.4f,%.4f,%.4f)\n" ,
 // 			subPath.dirContrib.r , subPath.dirContrib.g , subPath.dirContrib.b ,
 // 			subPath.indirContrib.r , subPath.indirContrib.g , subPath.indirContrib.b);
 // 	}
@@ -260,6 +264,11 @@ void MultipleMerge::runIteration(int iter)
 
 			Color3 tmp(0.f);
 
+// 			if (inter.matId == 4 && std::abs(hitPos.y + 1.f) < EPS 
+// 				&& cameraState.pathLength == 1)
+// 			{
+// 				int flag = 1;
+// 			}
 			// vertex merge
 			GatherQuery query(*this , cameraState);
 			if (!bsdf.isDelta)
@@ -269,7 +278,7 @@ void MultipleMerge::runIteration(int iter)
 
 				//fprintf(fp , "%d\n" , query.mergeNum);
 
-				Color3 tmp = tmp + cameraState.throughput | query.contrib;
+				tmp = cameraState.throughput | query.contrib;
 
 				color = color + tmp;
 			}
@@ -279,7 +288,7 @@ void MultipleMerge::runIteration(int iter)
 			{
 				if (cameraState.pathLength + 1 >= minPathLength)
 				{
-					tmp = tmp + getDirectIllumination(cameraState , hitPos , bsdf)
+					tmp = getDirectIllumination(cameraState , hitPos , bsdf)
 						* std::exp(-3.f * bsdf.glossyIndex);
 					color = color + (cameraState.throughput | tmp);
 				}
@@ -294,16 +303,20 @@ void MultipleMerge::runIteration(int iter)
 			if (!sampleScattering(bsdf , hitPos , cameraState , &pdf , 1))
 				break;
 
-			Real weightFactor = connectFactor(pdf , bsdf.glossyIndex) / 
-				(connectFactor(pdf , bsdf.glossyIndex) + mergeFactor());
+			if (!bsdf.isDelta)
+			{
+				Real weightFactor = connectFactor(pdf , bsdf.glossyIndex) / 
+					(connectFactor(pdf , bsdf.glossyIndex) + mergeFactor());
+
+				cameraState.throughput = cameraState.throughput * weightFactor;
+			}	
 
 			/*
 			if (!bsdf.isDelta)
 			{
 				weights.push_back(weightFactor);
 			}
-			*/
-			cameraState.throughput = cameraState.throughput * weightFactor;
+			*/	
 		}
 		/*
 		Real totWeight = 0.f;

@@ -6,7 +6,7 @@ void BidirPathTracing::init(char *filename , Parameters& para)
 {
 	minPathLength = 0;
 	maxPathLength = 10;
-	iterations = 1;
+	iterations = 8000;
 
 	samplesPerPixel = para.SAMPLES_PER_PIXEL;
 
@@ -35,10 +35,10 @@ void BidirPathTracing::outputImage(char *filename)
 			film->color[j][i] = tmp;
 
 			tmp = film->color[i][j];
-			/*
+			
 			fprintf(fp , "c(%d,%d)=(%.3f,%.3f,%.3f)\n" , i , j ,
 				tmp.r , tmp.g , tmp.b);
-			*/
+			
 		}
 	}
 	film->outputImage(filename , 1.f / iterations , 2.2);
@@ -261,10 +261,19 @@ void BidirPathTracing::generateLightSample(BidirPathState& lightState)
 	AbstractLight *light = scene.lights[lightId];
 
 	Real emissionPdf , directPdf , cosAtLight;
-	lightState.throughput = light->emit(scene.sceneSphere ,
-		rng.randVector3() , rng.randVector3() , 
-		lightState.origin , lightState.dir , emissionPdf ,
-		&directPdf , &cosAtLight);
+
+	Color3 radiance;
+
+	for (;;)
+	{
+		radiance = light->emit(scene.sceneSphere ,
+			rng.randVector3() , rng.randVector3() , 
+			lightState.origin , lightState.dir , emissionPdf ,
+			&directPdf , &cosAtLight);
+		if (emissionPdf > 1e-7f)
+			break;
+	}
+	lightState.throughput = radiance;
 
 	emissionPdf *= lightPickProb;
 	directPdf *= lightPickProb;
@@ -506,7 +515,7 @@ Color3 BidirPathTracing::getDirectIllumination(BidirPathState& cameraState ,
 					(cameraState.dVCM + mis(bsdfRevPdf) * cameraState.dVC);
 				weight = 1.f / (wLight + 1.f + wCamera);
 
-				fprintf(fp , "weight = %.6f\n" , weight);
+				//fprintf(fp , "weight = %.6f\n" , weight);
 
 				if (light->isDelta())
 				{

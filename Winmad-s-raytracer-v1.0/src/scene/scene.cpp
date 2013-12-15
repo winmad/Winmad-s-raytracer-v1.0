@@ -153,13 +153,14 @@ void Scene::loadScene()
 	addGeometry(new Triangle(cb[1] , cb[5] , cb[6] , 4));
 	addGeometry(new Triangle(cb[6] , cb[2] , cb[1] , 4));
 	// balls - central
-	/*
-	Real largeRadius = 0.8f;
+	
+	Real largeRadius = 1.2f;
 	Vector3 center = (cb[0] + cb[1] + cb[4] + cb[5]) * 0.25f +
 		Vector3(0 , 0 , largeRadius);
 	addGeometry(new Sphere(center , largeRadius , 6));
-	*/
+	
 	// balls - left and right
+	/*
 	Real smallRadius = 0.5f;
 	Vector3 leftWallCenter = (cb[0] + cb[4]) * 0.5f +
 		Vector3(0 , 0 , smallRadius);
@@ -172,6 +173,7 @@ void Scene::loadScene()
 		Vector3(2.f * xlen / 7.f , 0 , 0);
 	addGeometry(new Sphere(leftBallCenter , smallRadius , 6));
 	addGeometry(new Sphere(rightBallCenter , smallRadius , 7));
+	*/
 	// light box at ceiling
 	Vector3 lb[8] = {
 		Vector3(-0.25f,  0.25f, 1.26002f),

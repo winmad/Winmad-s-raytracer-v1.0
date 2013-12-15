@@ -85,12 +85,14 @@ public:
 
 			Real misWeight = 1.f / (weightLight + 1.f + weightCamera);
 
-			//fprintf(fp , "vm s=%d,t=%d,LightPath=%s,CameraPath=%s,w=%.6f\n" , lightVertex.pathLength , 
-			//	cameraState.pathLength , lightVertex.pathHistory.c_str() ,
-			//	cameraState.pathHistory.c_str() , misWeight);
+			Color3 tmp = (cameraBsdfFactor | lightVertex.throughput);
 
-			contrib = contrib + (cameraBsdfFactor | lightVertex.throughput) *
-				misWeight;
+			fprintf(fp , "vm s=%d,t=%d,LightPath=%s,CameraPath=%s,w=%.6f\nContrib=(%.4f,%.4f,%.4f)\n" , lightVertex.pathLength , 
+				cameraState.pathLength , lightVertex.pathHistory.c_str() ,
+				cameraState.pathHistory.c_str() , misWeight , tmp.r ,
+				tmp.g , tmp.b);
+
+			contrib = contrib + tmp * misWeight;
 		}
 	};
 
