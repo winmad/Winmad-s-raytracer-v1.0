@@ -78,7 +78,7 @@ bool Triangle::hit(const Ray& ray , Intersection& inter)
 	inter.p = ray(inter.t);
 	inter.n = (p1 - p0) * (p2 - p0);
 	inter.n.normalize();
-	if (cmp(ray.dir ^ inter.n) < 0)
+	if ((ray.dir ^ inter.n) < EPS)
 		inter.inside = 0;
 	else 
 		inter.inside = 1;

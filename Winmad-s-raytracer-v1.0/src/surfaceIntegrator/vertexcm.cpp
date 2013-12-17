@@ -184,7 +184,7 @@ void VertexCM::runIteration(int iter)
 			if (!bsdf.isValid())
 				break;
 
-			if (inter.matId == 9)
+			if (inter.matId == 9 && cameraState.pathLength == 1)
 			{
 				int flag = 1;
 			}
@@ -261,7 +261,7 @@ void VertexCM::runIteration(int iter)
 
 				tree->searchInRadius(0 , hitPos , radius , query);
 
-				//fprintf(fp , "%d\n" , query.mergeNum);
+				fprintf(fp , "%d\n" , query.mergeNum);
 
 				color = color + (cameraState.throughput | query.contrib) *
 					vmNormalization;

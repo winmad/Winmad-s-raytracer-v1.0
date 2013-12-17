@@ -246,7 +246,7 @@ Color3 BSDF::sampleTrans(const Material& mat ,
 	Real sinI2 = 1.f - cosI * cosI;
 	Real sinT2 = SQR(etaI_over_etaT) * sinI2;
 
-	if (cmp(sinT2 - 1.f) < 0) // no total internal reflection
+	if (sinT2 < 1.f) // no total internal reflection
 	{
 		cosT *= std::sqrt(clampVal(1.f - sinT2 , 0.f , 1.f));
 		woLocal = Vector3(-etaI_over_etaT * wiLocal.x ,
