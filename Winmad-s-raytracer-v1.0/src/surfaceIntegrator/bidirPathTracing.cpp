@@ -33,12 +33,11 @@ void BidirPathTracing::outputImage(char *filename)
 			Color3 tmp = film->color[i][j];
 			film->color[i][j] = film->color[j][i];
 			film->color[j][i] = tmp;
-
+			/*
 			tmp = film->color[i][j];
-			
 			fprintf(fp , "c(%d,%d)=(%.3f,%.3f,%.3f)\n" , i , j ,
 				tmp.r , tmp.g , tmp.b);
-			
+			*/
 		}
 	}
 	film->outputImage(filename , 1.f / iterations , 2.2);
@@ -132,6 +131,11 @@ void BidirPathTracing::runIteration(int iter)
 	for (int index = 0; index < cameraPathNum; index++)
 	{
 		int pathIndex = index % (height * width);
+
+		if (pathIndex == 111 * 512 + 364)
+		{
+			int flag = 1;
+		}
 
 		BidirPathState cameraState;
 		Vector3 screenSample = generateCameraSample(pathIndex , cameraState);

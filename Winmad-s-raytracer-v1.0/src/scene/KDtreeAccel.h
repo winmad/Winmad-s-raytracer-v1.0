@@ -40,6 +40,12 @@ public:
 	Real splitPlane;
 };
 
+struct KDTodo
+{
+	KDtreeAccelNode *node;
+	Real tmin , tmax;
+};
+
 class KDtreeAccel
 {
 public:
@@ -48,6 +54,8 @@ public:
 	int depMax;
 
 	KDtreeAccelNode *root;
+	
+	KDTodo *todo;
 
 	KDtreeAccel() {}
 

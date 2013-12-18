@@ -21,9 +21,24 @@ void Scene::addMaterial(Material mat)
 Geometry* Scene::intersect(const Ray& ray , Intersection& inter)
 {
     Geometry *g = NULL;
+	
     g = kdtreeAccel.traverse(ray , kdtreeAccel.root);
     if (g != NULL)
         g->hit(ray , inter);
+	
+// 	Real tmp = INF;
+// 	for (int i = 0; i < objs.size(); i++)
+// 	{
+// 		objs[i]->hit(ray , inter);
+// 		if (inter.t < tmp)
+// 		{
+// 			tmp = inter.t;
+// 			g = objs[i];
+// 		}
+// 	}
+// 	if (g != NULL)
+// 		g->hit(ray , inter);
+		
     return g;
 }
 
@@ -154,7 +169,7 @@ void Scene::loadScene()
 	addGeometry(new Triangle(cb[6] , cb[2] , cb[1] , 4));
 	// balls - central
 	
-	Real largeRadius = 1.2f;
+	Real largeRadius = 0.8f;
 	Vector3 center = (cb[0] + cb[1] + cb[4] + cb[5]) * 0.25f +
 		Vector3(0 , 0 , largeRadius);
 	addGeometry(new Sphere(center , largeRadius , 6));
@@ -340,6 +355,16 @@ void Scene::loadScene(char* filename)
 						for (int k = 0; k < 3; k++)
 						{
 							p[j][k] = shapes[i].mesh.positions[3 * v + k];
+						}
+					}
+					if (shapes[i].name == "water")
+					{
+						Vector3 n = (p[1] - p[0]) * (p[2] - p[0]);
+						if (n.y < EPS)
+						{
+							Vector3 tmp = p[2];
+							p[2] = p[0];
+							p[0] = tmp;
 						}
 					}
 					t = new Triangle(p[0] , p[1] , p[2] , id);

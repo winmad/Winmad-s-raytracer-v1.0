@@ -2,47 +2,25 @@
 
 bool AABB::hit(const Ray& ray , Real& t1 , Real& t2)
 {
-	Real tmin , tmax;
-	Real a = 1.0f / ray.dir.x;
-	if (cmp(a) >= 0)
-	{
-		tmin = a * (l.x - ray.origin.x);
-		tmax = a * (r.x - ray.origin.x);
-	}
-	else
-	{
-		tmin = a * (r.x - ray.origin.x);
-		tmax = a * (l.x - ray.origin.x);
-	}
-	a = 1.0f / ray.dir.y;
-	if (cmp(a) >= 0)
-	{
-		tmin = std::max(tmin , a * (l.y - ray.origin.y));
-		tmax = std::min(tmax , a * (r.y - ray.origin.y));
-	}
-	else
-	{
-		tmin = std::max(tmin , a * (r.y - ray.origin.y));
-		tmax = std::min(tmax , a * (l.y - ray.origin.y));
-	}
-	a = 1.0f / ray.dir.z;
-	if (cmp(a) >= 0)
-	{
-		tmin = std::max(tmin , a * (l.z - ray.origin.z));
-		tmax = std::min(tmax , a * (r.z - ray.origin.z));
-	}
-	else
-	{
-		tmin = std::max(tmin , a * (r.z - ray.origin.z));
-		tmax = std::min(tmax , a * (l.z - ray.origin.z));
-	}
+	Real tmin = -INF , tmax = INF;
 
-	if (tmin < tmax) 
+	for (int i = 0; i < 3; i++)
 	{
-		t1 = tmin;
-		t2 = tmax;
-		return 1;
+		Real invRayDir = 1.f / ray.dir[i];
+		Real tNear = (l[i] - ray.origin[i]) * invRayDir;
+		Real tFar = (r[i] - ray.origin[i]) * invRayDir;
+
+		if (tNear > tFar)
+		{
+			std::swap(tNear , tFar);
+		}
+
+		tmin = std::max(tmin , tNear);
+		tmax = std::min(tmax , tFar);
+		if (tmin > tmax)
+			return 0;
 	}
-	else
-		return 0;
+	t1 = tmin;
+	t2 = tmax;
+	return 1;
 }

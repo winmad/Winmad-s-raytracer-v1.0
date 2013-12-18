@@ -14,6 +14,10 @@ void KDtreeAccel::init(const std::vector<Geometry*>& _objlist)
 	int _totObjNum = _objlist.size();
 	int totObjNum = _totObjNum;
 	depMax = (int)(1.2 * log((double)totObjNum) + 2.0);
+	
+	int MAX_TODO = depMax + 5;
+	todo = new KDTodo[MAX_TODO];
+
 	root = new KDtreeAccelNode();
 
 	root->objNum = totObjNum;
@@ -292,96 +296,95 @@ void KDtreeAccel::buildTree(KDtreeAccelNode *tr , int dep)
 		r->box.r.y = r->e[1][r->eventNum[1] - 1].pos;
 		r->box.r.z = r->e[2][r->eventNum[2] - 1].pos;
 	}
-
+	/*
 	for (int i = 0; i < 3; i++) delete[] tr->e[i];
 	delete[] tr->div;
 	delete[] index_to_l;
 	delete[] index_to_r;
-
+	*/
 	buildTree(l , dep + 1);
 	buildTree(r , dep + 1);
 }
 
 Geometry* KDtreeAccel::traverse(const Ray& ray , KDtreeAccelNode *tr)
 {
-	if (tr == NULL)
+	Real tmin , tmax;
+	if (!tr->box.hit(ray , tmin , tmax))
 		return NULL;
-	if (tr->axis == -1)
+
+	Vector3 invDir(1.f / ray.dir.x , 1.f / ray.dir.y , 1.f / ray.dir.z);
+
+	int todoPos = 0;
+	Geometry* res = NULL;
+	Real tmp = INF;
+
+	while (tr != NULL)
 	{
-		Real tmp = INF;
-		Intersection inter;
-		inter.t = INF;
-		Geometry* res = NULL;
-		for (int i = 0; i < tr->objNum; i++)
+		if (ray.tmax < tmin)
+			break;
+		if (tr->axis != -1)
 		{
-			if (tr->objlist[i]->hit(ray , inter))
+			int axis = tr->axis;
+			Real t = (tr->splitPlane - ray.origin[axis]) * invDir[axis];
+
+			KDtreeAccelNode *near , *far;
+			int belowFirst = (ray.origin[axis] < tr->splitPlane) ||
+				(ray.origin[axis] == tr->splitPlane && ray.dir[axis] <= 0);
+
+			if (belowFirst)
 			{
-				if (cmp(inter.t - tmp) < 0)
-				{
-					tmp = inter.t;
-					res = tr->objlist[i];
-				}
+				near = tr->left;
+				far = tr->right;
+			}
+			else
+			{
+				near = tr->right;
+				far = tr->left;
+			}
+
+			if (t > tmax || t <= 0)
+				tr = near;
+			else if (t < tmin)
+				tr = far;
+			else
+			{
+				todo[todoPos].node = far;
+				todo[todoPos].tmin = t;
+				todo[todoPos].tmax = tmax;
+				++todoPos;
+				tr = near;
+				tmax = t;
 			}
 		}
-		return res;
-	}
-	Real diff = tr->splitPlane - ray.origin[tr->axis];
-	Real t = diff / ray.dir[tr->axis];
-	Real a , b;
-	if (!tr->box.hit(ray , a , b))
-		return NULL;
+		else 
+		{
+			Intersection inter;
+			inter.t = INF;
+			for (int i = 0; i < tr->objNum; i++)
+			{
+				if (tr->objlist[i]->hit(ray , inter))
+				{
+					if (cmp(inter.t - tmp) < 0)
+					{
+						tmp = inter.t;
+						res = tr->objlist[i];
+					}
+				}
+			}
 
-	KDtreeAccelNode *near , *far;
-	if (cmp(diff) == 0)
-	{
-		Vector3 n;
-		if (tr->axis == 0)
-			n = Vector3(1.0 , 0.0 , 0.0);
-		else if (tr->axis == 1)
-			n = Vector3(0.0 , 1.0 , 0.0);
-		else if (tr->axis == 2)
-			n = Vector3(0.0 , 0.0 , 1.0);
-		if (cmp(ray.dir ^ n) > 0)
-		{
-			near = tr->right;
-			far = tr->left;
+			if (todoPos > 0)
+			{
+				--todoPos;
+				tr = todo[todoPos].node;
+				tmin = todo[todoPos].tmin;
+				tmax = todo[todoPos].tmax;
+			}
+			else
+				break;
 		}
-		else
-		{
-			near = tr->left;
-			far = tr->right;
-		}
-	}
-	else if (cmp(diff) > 0)
-	{
-		near = tr->left;
-		far = tr->right;
-	}
-	else
-	{
-		near = tr->right;
-		far = tr->left;
 	}
 
-	if (cmp(t - b) > 0 || cmp(t) < 0)
-	{
-		return traverse(ray , near);
-	}
-	else
-	{
-		if (cmp(t - a) < 0)
-		{
-			return traverse(ray , far);
-		}
-		else
-		{
-			Geometry* res = traverse(ray , near);
-			if (res != NULL)
-				return res;
-			else 
-				return traverse(ray , far);
-		}
-	}
+	return res;
 }
 
 void print_tree(FILE *fp , KDtreeAccelNode *tr)
@@ -401,6 +404,10 @@ void print_tree(FILE *fp , KDtreeAccelNode *tr)
 	fprintf(fp , "\nNode's box = (%.3lf,%.3lf,%.3lf),(%.3lf,%.3lf,%.3lf)\n" ,
 		tr->box.l.x , tr->box.l.y , tr->box.l.z , tr->box.r.x , tr->box.r.y , tr->box.r.z);
 
+	fprintf(fp , "\nSplit plane: axis = %d , pos = %.3lf\n" ,
+		(int)tr->axis , tr->splitPlane);
+
+	/*
 	fprintf(fp , "\nX-axis events:\n");
 	for (int i = 0; i < tr->eventNum[0]; i++)
 	{
@@ -421,10 +428,8 @@ void print_tree(FILE *fp , KDtreeAccelNode *tr)
 		fprintf(fp , "event #%d: pos = %.3lf , type = %d , obj index = %d\n" ,
 			i , tr->e[2][i].pos , (int)tr->e[2][i].type , tr->e[2][i].index);
 	}
-
-	fprintf(fp , "\nSplit plane: axis = %d , pos = %.3lf\n" ,
-		(int)tr->axis , tr->splitPlane);
-
+	*/
+	
 	print_tree(fp , tr->left);
 	print_tree(fp , tr->right);
 }

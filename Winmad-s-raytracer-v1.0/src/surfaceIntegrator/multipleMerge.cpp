@@ -264,11 +264,6 @@ void MultipleMerge::runIteration(int iter)
 
 			Color3 tmp(0.f);
 
-// 			if (inter.matId == 4 && std::abs(hitPos.y + 1.f) < EPS 
-// 				&& cameraState.pathLength == 1)
-// 			{
-// 				int flag = 1;
-// 			}
 			// vertex merge
 			GatherQuery query(*this , cameraState);
 			if (!bsdf.isDelta)
