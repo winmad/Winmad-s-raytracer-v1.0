@@ -139,6 +139,13 @@ void VertexCM::runIteration(int iter)
 		pathEnds[pathIndex] = (int)lightVertices.size();
 	}
 
+// 	for (int i = 0; i < lightVertices.size(); i++)
+// 	{
+// 		PathVertex& subPath = lightVertices[i];
+// 		fprintf(fp , "throughput=(%.4f,%.4f,%.4f)\n" ,
+// 		subPath.throughput.r , subPath.throughput.g , subPath.throughput.b);
+// 	}
+
 	////////////////////////////////////////////////////////////
 	// build vertex kd-tree
 	////////////////////////////////////////////////////////////

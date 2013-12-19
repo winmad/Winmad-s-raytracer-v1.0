@@ -129,6 +129,7 @@ public:
 	Real radiusAlpha;        // radius reduction per iteration
 	Real radius;
 	Real mergeKernel;        // constant kernel
+	Real glossyFactor;
 
 	std::vector<MMPathState> lightSubPaths;
 

@@ -14,6 +14,7 @@ void MultipleMerge::init(char *filename , Parameters& para)
 
 	baseRadius = 0.003f * scene.sceneSphere.sceneRadius;
 	radiusAlpha = 0.75f;
+	glossyFactor = 3.f;
 
 	height = para.HEIGHT; width = para.WIDTH;
     pixelNum = height * width;
@@ -210,6 +211,17 @@ void MultipleMerge::runIteration(int iter)
 // 			subPath.indirContrib.r , subPath.indirContrib.g , subPath.indirContrib.b);
 // 	}
 
+	for (int i = 0; i < lightSubPaths.size(); i++)
+	{
+		MMPathState& subPath = lightSubPaths[i];
+		Vector3 imagePos = scene.camera.worldToRaster.tPoint(subPath.pos);
+		if (scene.camera.checkRaster(imagePos.x , imagePos.y))
+		{
+			Color3 res = connectToCamera(subPath , subPath.pos , subPath.bsdf);
+			film->addColor((int)imagePos.x , (int)imagePos.y , res);
+		}
+	}
+
 	// generating camera paths
 	for (int index = 0; index < cameraPathNum; index++)
 	{
@@ -284,7 +296,7 @@ void MultipleMerge::runIteration(int iter)
 				if (cameraState.pathLength + 1 >= minPathLength)
 				{
 					tmp = getDirectIllumination(cameraState , hitPos , bsdf)
-						* std::exp(-3.f * bsdf.glossyIndex);
+						* std::exp(-glossyFactor * bsdf.glossyIndex);
 					color = color + (cameraState.throughput | tmp);
 				}
 			}
@@ -468,6 +480,8 @@ Color3 MultipleMerge::connectToCamera(MMPathState& lightState ,
 
     Real weightFactor = connectFactor(pdf , bsdf.glossyIndex) / 
 		(connectFactor(pdf , bsdf.glossyIndex) + mergeFactor());
+
+	weightFactor *= std::exp(-glossyFactor * bsdf.glossyIndex);
     
 	return res * weightFactor;
 }
@@ -505,8 +519,17 @@ bool MultipleMerge::sampleScattering(BSDF& bsdf ,
 	{
 		if (cmp(bsdfRevPdf) == 0)
 			bsdfRevPdf = 1e-7f;
-		pathState.throughput = (pathState.throughput | bsdfFactor) *
-			(std::abs(bsdf.cosWi()) / bsdfRevPdf);
+
+		if (sampledBSDFType & BSDF_SPECULAR)
+		{
+			pathState.throughput = (pathState.throughput | bsdfFactor) *
+				(cosWo / bsdfRevPdf);
+		}
+		else
+		{
+			pathState.throughput = (pathState.throughput | bsdfFactor) *
+				(std::abs(bsdf.cosWi()) / bsdfRevPdf);
+		}
 
 		*_bsdfDirPdf = bsdfRevPdf;
 	}
