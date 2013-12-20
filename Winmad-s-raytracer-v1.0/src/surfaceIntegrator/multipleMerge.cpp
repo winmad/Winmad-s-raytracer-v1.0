@@ -14,7 +14,7 @@ void MultipleMerge::init(char *filename , Parameters& para)
 
 	baseRadius = 0.003f * scene.sceneSphere.sceneRadius;
 	radiusAlpha = 0.75f;
-	glossyFactor = 3.f;
+	glossyFactor = 1.f;
 
 	height = para.HEIGHT; width = para.WIDTH;
     pixelNum = height * width;
@@ -227,6 +227,11 @@ void MultipleMerge::runIteration(int iter)
 	{
 		int pathIndex = index % (height * width);
 
+		if (pathIndex == 256 * 512 + 502)
+		{
+			int flag = 1;
+		}
+
 		MMPathState cameraState;
 		Vector3 screenSample = generateCameraSample(pathIndex , cameraState);
 		/*
@@ -285,7 +290,7 @@ void MultipleMerge::runIteration(int iter)
 
 				//fprintf(fp , "%d\n" , query.mergeNum);
 
-				tmp = cameraState.throughput | query.contrib;
+				tmp = (cameraState.throughput | query.contrib);
 
 				color = color + tmp;
 			}
@@ -422,7 +427,7 @@ void MultipleMerge::generateInterSample(MMPathState& interState)
 	interState.dirAtOrigin = localFrame.localToWorld(localDir);
 	*/
 
-	interState.throughput = Color3(1.f);
+	interState.throughput = Color3(2.f * PI);
 	interState.pathLength = 1;
 
 	interState.origin = interState.posAtOrigin;
@@ -549,7 +554,6 @@ bool MultipleMerge::sampleScattering(BSDF& bsdf ,
 	if (sampledBSDFType & BSDF_SPECULAR)
 	{
 		pathState.specularPath &= 1;
-		*_bsdfDirPdf = 1e6f;
 	}
 	else
 	{
@@ -586,7 +590,7 @@ Vector3 MultipleMerge::generateCameraSample(const int pathIndex ,
 	cameraState.pathLength = 1;
 	cameraState.specularPath = 1;
 	
-    cameraState.throughput = Color3(1);
+    cameraState.throughput = Color3(1.f);
 
 	cameraState.dirContrib = cameraState.indirContrib = Color3(0.f);
 
@@ -662,7 +666,9 @@ Color3 MultipleMerge::getDirectIllumination(MMPathState& cameraState ,
 		if (cmp(pdf) == 0)
 			pdf = 1e-7f;
 
-		tmp = (illu | bsdfFactor) * cosToLight / (directPdf * lightPickProb);
+		Real cosTerm = std::abs(bsdf.cosWi());
+
+		tmp = (illu | bsdfFactor) * cosTerm / (directPdf * lightPickProb);
 
 		if (!tmp.isBlack() && !scene.occluded(hitPos , dirToLight ,
 			hitPos + dirToLight * dist))

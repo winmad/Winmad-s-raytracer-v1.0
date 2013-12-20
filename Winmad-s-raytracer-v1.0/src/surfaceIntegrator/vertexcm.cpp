@@ -158,6 +158,10 @@ void VertexCM::runIteration(int iter)
 	{
 		int pathIndex = index % (height * width);
 
+		if (pathIndex == 256 * 512 + 502)
+		{
+			int flag = 1;
+		}
 		SubPathState cameraState;
 		cameraState.pathHistory = "";
 

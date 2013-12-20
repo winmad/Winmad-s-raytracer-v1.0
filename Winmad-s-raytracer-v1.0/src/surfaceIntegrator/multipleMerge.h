@@ -56,6 +56,8 @@ public:
 				multipleMerge.mergeFactor());
 			weightFactor *= multipleMerge.mergeKernel;
 
+			//weightFactor *= cosCamera / cameraBsdfRevPdf;
+
 			Color3 totContrib = lightSubPath.dirContrib + lightSubPath.indirContrib;
 			contrib = contrib + (cameraBsdfFactor | totContrib) * weightFactor;
 		}
@@ -183,7 +185,7 @@ public:
 
 	Real mergeFactor()
 	{
-		return mis(0.5 * SQR(radius) * partialPathNum / scene.totArea);
+		return mis(0.5f * SQR(radius) * partialPathNum / scene.totArea);
 	}
 
 	Real gatherFactor(Real mergeNum , Real glossyIndex)
