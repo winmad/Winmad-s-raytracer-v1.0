@@ -21,6 +21,7 @@ class BidirPathTracing : public SurfaceIntegrator
 {
 public:
 	int minPathLength , maxPathLength;
+	int controlLength;
 	int lightPathNum , cameraPathNum , pixelNum;
 	int iterations;
 

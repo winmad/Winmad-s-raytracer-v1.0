@@ -6,7 +6,7 @@ void BidirPathTracing::init(char *filename , Parameters& para)
 {
 	minPathLength = 0;
 	maxPathLength = 10;
-	iterations = 8000;
+	iterations = 1;
 
 	samplesPerPixel = para.SAMPLES_PER_PIXEL;
 
@@ -16,6 +16,8 @@ void BidirPathTracing::init(char *filename , Parameters& para)
 	pixelNum = height * width;
 
 	film = new ImageFilm(height , width);
+
+	controlLength = 3;
 }
 
 void BidirPathTracing::render()
@@ -102,7 +104,8 @@ void BidirPathTracing::runIteration(int iter)
 			// connect to camera
 			if (!bsdf.isDelta)
 			{
-				if (lightState.pathLength + 1 >= minPathLength)
+				if (lightState.pathLength + 1 >= minPathLength 
+					&& lightState.pathLength + 1 == controlLength)
 				{
 					Vector3 imagePos = scene.camera.worldToRaster.tPoint(hitPos);
 					if (scene.camera.checkRaster(imagePos.x , imagePos.y))
@@ -151,6 +154,7 @@ void BidirPathTracing::runIteration(int iter)
 
 			if (scene.intersect(ray , inter) == NULL)
 			{
+				/*
 				if (scene.background != NULL)
 				{
 					if (cameraState.pathLength >= minPathLength)
@@ -163,6 +167,7 @@ void BidirPathTracing::runIteration(int iter)
 							cameraState , Vector3(0) , ray.dir)) * weight;
 					}
 				}
+				*/
 				break;
 			}
 
@@ -180,7 +185,8 @@ void BidirPathTracing::runIteration(int iter)
 			{
 				AbstractLight *light = scene.lights[-inter.matId - 1];
 
-				if (cameraState.pathLength >= minPathLength)
+				if (cameraState.pathLength >= minPathLength
+					&& cameraState.pathLength == controlLength)
 				{
 					// weight
 					//Real weight = 1.f / (cameraState.pathLength - cameraState.specularVertexNum);
@@ -198,7 +204,8 @@ void BidirPathTracing::runIteration(int iter)
 			// vertex connection: connect to light source
 			if (!bsdf.isDelta)
 			{
-				if (cameraState.pathLength + 1 >= minPathLength)
+				if (cameraState.pathLength + 1 >= minPathLength
+					&& cameraState.pathLength + 1 == controlLength)
 				{
 					// weight
 					Real weight = 1.f / (cameraState.pathLength + 1.f - cameraState.specularVertexNum);
@@ -242,6 +249,8 @@ void BidirPathTracing::runIteration(int iter)
 						cameraState.pathLength - lightState.specularVertexNum - 
 						cameraState.specularVertexNum);
 
+					if (lightState.pathLength + 1 + cameraState.pathLength ==
+						controlLength)
 					color = color + (cameraState.throughput |
 						lightState.throughput | tmp) * weight;
 				}
