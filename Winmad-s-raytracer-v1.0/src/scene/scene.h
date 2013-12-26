@@ -7,6 +7,7 @@
 #include "../geometry/triangle.h"
 #include "../geometry/mesh.h"
 #include "../geometry/intersection.h"
+#include "../volume/volume.h"
 #include "camera.h"
 #include "light.h"
 #include "KDtreeAccel.h"
@@ -25,6 +26,7 @@ public:
 	std::vector<AbstractLight*> lights;
 	SceneSphere sceneSphere;
 	BackgroundLight *background;
+	Volume *volume;
 	Real totArea;
 
 	Scene() : background(NULL) , totArea(0.f) {}
