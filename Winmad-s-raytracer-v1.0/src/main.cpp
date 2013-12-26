@@ -8,6 +8,7 @@
 #include "surfaceIntegrator/pathReusing.h"
 #include "surfaceIntegrator/bidirPathTracing.h"
 #include "surfaceIntegrator/multipleMerge.h"
+#include "volumeIntegrator/singleScattering.h"
 #include <opencv2/opencv.hpp>
 #include "tinyxml/tinyxml.h"
 #include <ctime>
@@ -21,6 +22,7 @@ VertexCM vertexcmIntegrator;
 PathReusing pathReusing;
 BidirPathTracing bidirPathTracing;
 MultipleMerge multipleMerge;
+SingleScattering singleScattering;
 
 int main(int argc , char* argv[])
 {
@@ -69,6 +71,12 @@ int main(int argc , char* argv[])
 		multipleMerge.init(argv[1] , para);
 		multipleMerge.render();
 		multipleMerge.outputImage(argv[2]);
+	}
+	else if (!strcmp(argv[3] , "-vss"))
+	{
+		singleScattering.init(argv[1] , para);
+		singleScattering.render();
+		singleScattering.outputImage(argv[2]);
 	}
 	else
 	{

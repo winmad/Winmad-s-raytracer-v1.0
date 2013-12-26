@@ -1,5 +1,11 @@
 #include "AABB.h"
 
+bool AABB::inside(const Vector3& p)
+{
+	return (p.x >= l.x && p.x <= r.x &&
+		p.y >= l.y && p.y <= r.y && p.z >= l.z && p.z <= r.z);
+}
+
 bool AABB::hit(const Ray& ray , Real& t1 , Real& t2)
 {
 	Real tmin = -INF , tmax = INF;

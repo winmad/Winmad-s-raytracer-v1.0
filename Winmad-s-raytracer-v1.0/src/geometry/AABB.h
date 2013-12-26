@@ -44,6 +44,8 @@ public:
 	~AABB() {}
 
 	bool hit(const Ray& ray , Real& t1 , Real& t2);
+
+	bool inside(const Vector3& p);
 };
 
 #endif
