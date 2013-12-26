@@ -49,7 +49,7 @@ public:
 
 	Color3 transmittance(const Ray& ray);
 
-	Color3 getSingleScattering(const Ray& ray , Color3 *t);
+	Color3 getSingleScattering(const Ray& ray , Color3& t);
 
 	Real mis(Real pdf)
 	{

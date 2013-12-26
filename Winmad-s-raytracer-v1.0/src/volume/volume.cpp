@@ -3,7 +3,7 @@
 struct MeasuredSS
 {
 	const char *name;
-	Real sigmaPrimeS[3] , sigmaA[3];
+	double sigmaPrimeS[3] , sigmaA[3];
 };
 
 static MeasuredSS mss[] = 

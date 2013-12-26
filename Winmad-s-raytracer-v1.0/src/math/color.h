@@ -80,8 +80,12 @@ const Color3 operator -(const Color3& , const Color3&);
 const Color3 operator *(const Color3& , const Real&);
 const Color3 operator /(const Color3& , const Real&);
 
+const Color3 operator -(const Color3&);
+
 // It is not dot product!
 const Color3 operator |(const Color3& , const Color3&);
+
+const Color3 exp(const Color3&);
 
 Real luminance(const Color3& c);
 

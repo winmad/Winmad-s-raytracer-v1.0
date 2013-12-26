@@ -8,6 +8,7 @@
 #include "../geometry/mesh.h"
 #include "../geometry/intersection.h"
 #include "../volume/volume.h"
+#include "../volume/homogeneous.h"
 #include "camera.h"
 #include "light.h"
 #include "KDtreeAccel.h"

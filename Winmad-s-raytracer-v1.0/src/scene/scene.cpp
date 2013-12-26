@@ -430,6 +430,37 @@ void Scene::loadScene(char* filename)
 				}
 			}
 		}
+		else if (it->ValueStr() == "homo_media")
+		{
+			attr = it->FirstChildElement();
+
+			HomogeneousVolumeDensity *homoMedia;
+			homoMedia = new HomogeneousVolumeDensity();
+
+			// sigma_a
+			readColor3(attr , homoMedia->sigA);
+
+			// sigma_s
+			attr = attr->NextSiblingElement();
+			readColor3(attr , homoMedia->sigS);
+
+			// emit
+			attr = attr->NextSiblingElement();
+			readColor3(attr , homoMedia->le);
+
+			// g
+			attr = attr->NextSiblingElement();
+			attr->Attribute("g" , &x);
+			homoMedia->g = x;
+
+			// bounding box
+			attr = attr->NextSiblingElement();
+			readVector3(attr , homoMedia->box.l);
+			attr = attr->NextSiblingElement();
+			readVector3(attr , homoMedia->box.r);
+
+			volume = homoMedia;
+		}
 
 		it = it->NextSiblingElement();
 	}
@@ -443,13 +474,16 @@ void Scene::init(char* filename , Parameters& para)
     /* sample point light from area light */
     //lightlist = samplePointsOnAreaLight(areaLightlist , pointLightNum);
     
-	kdtreeAccel.init(objs);
-	kdtreeAccel.buildTree(kdtreeAccel.root , 1);
+	if (objs.size() > 0)
+	{
+		kdtreeAccel.init(objs);
+		kdtreeAccel.buildTree(kdtreeAccel.root , 1);
 
-	// build scene sphere
-	Vector3 diag = kdtreeAccel.root->box.r - kdtreeAccel.root->box.l;
-	Real diameter2 = diag.sqrLength();
-	sceneSphere.sceneCenter = (kdtreeAccel.root->box.l + kdtreeAccel.root->box.r) * 0.5f;
-	sceneSphere.sceneRadius = std::sqrt(diameter2) * 0.5f;
-	sceneSphere.invSceneRadiusSqr = 1.f / diameter2;
+		// build scene sphere
+		Vector3 diag = kdtreeAccel.root->box.r - kdtreeAccel.root->box.l;
+		Real diameter2 = diag.sqrLength();
+		sceneSphere.sceneCenter = (kdtreeAccel.root->box.l + kdtreeAccel.root->box.r) * 0.5f;
+		sceneSphere.sceneRadius = std::sqrt(diameter2) * 0.5f;
+		sceneSphere.invSceneRadiusSqr = 1.f / diameter2;
+	}
 }

@@ -6,6 +6,8 @@ void SingleScattering::init(char *filename , Parameters& para)
 	maxPathLength = 10;
 	iterations = 1;
 
+	stepSize = 1.f;
+
 	scene.init(filename , para);
 
 	height = para.HEIGHT; width = para.WIDTH;
@@ -72,6 +74,8 @@ void SingleScattering::runIteration(int iter)
 			if (!bsdf.isValid())
 				break;
 
+			Color3 li(0);
+
 			if (inter.matId < 0)
 			{
 				AbstractLight *light = scene.lights[-inter.matId - 1];
@@ -79,9 +83,10 @@ void SingleScattering::runIteration(int iter)
 				if (cameraState.pathLength >= minPathLength &&
 					cameraState.specularPath)
 				{
+					Ray lightRay(cameraState.origin , ray.dir);
 					color = color + (cameraState.throughput |
 						getLightRadiance(light , cameraState , 
-						hitPos , ray.dir));
+						hitPos , ray.dir) | transmittance(lightRay));
 				}
 				break;
 			}
@@ -94,10 +99,15 @@ void SingleScattering::runIteration(int iter)
 			{
 				if (cameraState.pathLength + 1 >= minPathLength)
 				{
-					color = color + (cameraState.throughput |
+					li = li + (cameraState.throughput |
 						getDirectIllumination(cameraState , hitPos , bsdf));
 				}
 			}
+
+			Color3 t;
+			Color3 lvi = getSingleScattering(ray , t);
+			color = color + (li | t) + lvi;
+			//color = color + li;
 
 			if (!sampleScattering(bsdf , hitPos , cameraState))
 				break;
@@ -115,12 +125,81 @@ Color3 SingleScattering::transmittance(const Ray& ray)
 	step = 4.f * stepSize;
 	offset = rng.randFloat();
 	Color3 tau = scene.volume->tau(ray , step , offset);
-	return Color3(std::exp(tau.r) , std::exp(tau.g) , std::exp(tau.b));
+	return exp(-tau);
 }
 
-Color3 SingleScattering::getSingleScattering(const Ray& ray , Color3 *t)
+Color3 SingleScattering::getSingleScattering(const Ray& ray , Color3& t)
 {
+	Volume *vr = scene.volume;
+	Real t0 , t1;
+	if (!vr || !vr->hit(ray , &t0 , &t1) || (t1 - t0) == 0.f)
+	{
+		t = Color3(1.f);
+		return Color3(0.f);
+	}
 
+	t0 = std::max(t0 , 0.f);
+	t1 = std::max(t1 , 0.f);
+
+	Color3 res(0.f);
+	int nSamples = (int)std::ceil((t1 - t0) / stepSize);
+	Real step = (t1 - t0) / nSamples;
+	Color3 tr(1.f);
+
+	Vector3 p = ray(t0) , pPrev;
+	Vector3 w = -ray.dir;
+	t0 += rng.randFloat() * step;
+
+	for (int i = 0; i < nSamples; i++ , t0 += step)
+	{
+		pPrev = p;
+		p = ray(t0);
+		Ray tauRay(pPrev , p - pPrev);
+		Color3 stepTau = vr->tau(ray , 0.5f * stepSize , rng.randFloat());
+		tr = (tr | exp(-stepTau));
+
+		if (tr.intensity() < 1e-3)
+		{
+			Real contProb = 0.5f;
+			if (rng.randFloat() > contProb)
+			{
+				tr = Color3(0.f);
+				break;
+			}
+			tr = tr / contProb;
+		}
+
+		res = res + (tr | vr->emit(p , w , 0.f));
+
+		Color3 ss = vr->sigmaS(p , w , 0.f);
+
+		if (!ss.isBlack() && scene.lights.size() > 0)
+		{
+			int lightCount = scene.lights.size();
+			int lightId = (int)(rng.randFloat() * lightCount);
+			AbstractLight *light = scene.lights[lightId];
+
+			Vector3 dirToLight;
+			Real dist , directPdf , emissionPdf , cosAtLight;
+
+			Color3 illu = light->illuminance(scene.sceneSphere , p ,
+				rng.randVector3() , dirToLight , dist , directPdf , &emissionPdf ,
+				&cosAtLight);
+
+			if (!illu.isBlack() && directPdf > 0.f &&
+				!scene.occluded(p , dirToLight , p + dirToLight * dist))
+			{
+				Ray lightRay(p + dirToLight * dist , -dirToLight);
+				Color3 ls = (illu | transmittance(lightRay));
+				Real phaseTerm = vr->p(p , w , dirToLight , 0.f);
+				res = res + (tr | ss | ls) * phaseTerm *
+					(Real)lightCount / directPdf;
+			}
+		}
+	}
+
+	t = tr;
+	return res * step;
 }
 
 bool SingleScattering::sampleScattering(BSDF& bsdf , 

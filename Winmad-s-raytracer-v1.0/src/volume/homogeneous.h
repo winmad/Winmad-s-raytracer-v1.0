@@ -3,13 +3,14 @@
 
 #include "volume.h"
 
-class HomogeneousVolumeDensity : public DensityVolume
+class HomogeneousVolumeDensity : public Volume
 {
 public:
 	Color3 sigA , sigS , le;
 	Real g;
 	AABB box;
 
+	HomogeneousVolumeDensity() {}
 	HomogeneousVolumeDensity(const Color3& sigA , const Color3& sigS ,
 		Real g , const Color3& le , const AABB& box)
 		: sigA(sigA) , sigS(sigS) , g(g) , le(le) , box(box) {}
