@@ -3,6 +3,7 @@
 
 #include "../math/vector.h"
 #include "../scene/scene.h"
+#include "../volume/volume.h"
 #include <vector>
 
 Vector3 sampleTriangle(const Vector3& samples ,
@@ -41,5 +42,9 @@ Real uniformSpherePdf();
 Vector3 sampleUniformHemisphere(const Vector3& samples , Real *pdf);
 
 Real uniformHemispherePdf();
+
+Vector3 samplePhaseHG(const Vector3& wi , const Real g , const Vector3& samples);
+
+Real sampleSegment(Real epsilon , Real sigma , Real smax);
 
 #endif

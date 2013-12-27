@@ -169,3 +169,28 @@ Real uniformHemispherePdf()
 {
 	return INV_PI * 0.5f;
 }
+
+Vector3 samplePhaseHG(const Vector3& wi , const Real g , const Vector3& samples)
+{
+	Real cosTheta;
+	if (std::abs(g) < 1e-3)
+	{
+		cosTheta = 1.f - 2.f * samples.x;
+	}
+	else
+	{
+		Real sqrTerm = (1.f - SQR(g)) / (1.f - g + 2.f * g * samples.x);
+		cosTheta = (1.f + SQR(g) + SQR(sqrTerm)) / (2.f * g);
+	}
+	Real sinTheta = sqrt(std::max(0.f , 1.f - SQR(cosTheta)));
+	Real phi = 2 * PI * samples.y;
+	Frame localFrame;
+	localFrame.buildFromZ(wi);
+	Vector3 p(sinTheta * std::cos(phi) , cosTheta * std::cos(phi) , std::sin(phi));
+	return localFrame.localToWorld(p);
+}
+
+Real sampleSegment(Real epsilon , Real sigma , Real smax)
+{
+	return -log(1.0 - epsilon * (1.0 - std::exp(-sigma * smax))) / sigma;
+}

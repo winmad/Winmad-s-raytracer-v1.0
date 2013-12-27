@@ -46,6 +46,8 @@ Color3 HomogeneousVolumeDensity::tau(const Ray& ray , Real step /* = 1.f  */, Re
 	Real t0 , t1;
 	if (!hit(ray , &t0 , &t1))
 		return Color3(0.f);
+	t0 = clampVal(t0 , ray.tmin , ray.tmax);
+	t1 = clampVal(t1 , ray.tmin , ray.tmax);
 
 	Vector3 d = ray(t1) - ray(t0);
 	Real dist = d.length();

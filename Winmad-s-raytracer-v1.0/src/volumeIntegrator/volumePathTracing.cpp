@@ -1,10 +1,10 @@
-#include "singleScattering.h"
+#include "volumePathTracing.h"
 
-void SingleScattering::init(char *filename , Parameters& para)
+void VolumePathTracing::init(char *filename , Parameters& para)
 {
 	minPathLength = 0;
 	maxPathLength = 10;
-	iterations = 1;
+	iterations = 50;
 
 	stepSize = 1.f;
 
@@ -17,13 +17,13 @@ void SingleScattering::init(char *filename , Parameters& para)
 
 static FILE *fp = fopen("debug_vss.txt" , "w");
 
-void SingleScattering::render()
+void VolumePathTracing::render()
 {
 	for (int iter = 0; iter < iterations; iter++)
 		runIteration(iter);
 }
 
-void SingleScattering::outputImage(char *filename)
+void VolumePathTracing::outputImage(char *filename)
 {
 	for (int i = 0; i < height; i++)
 	{
@@ -42,7 +42,7 @@ void SingleScattering::outputImage(char *filename)
 	film->outputImage(filename , 1.f / iterations , 2.2);
 }
 
-void SingleScattering::runIteration(int iter)
+void VolumePathTracing::runIteration(int iter)
 {
 	cameraPathNum = height * width;
 
@@ -51,7 +51,7 @@ void SingleScattering::runIteration(int iter)
 	{
 		int pathIndex = index % (height * width);
 
-		SSPathState cameraState;
+		VptPathState cameraState;
 		Vector3 screenSample = generateCameraSample(pathIndex , cameraState);
 
 		Color3 color(0);
@@ -63,147 +63,162 @@ void SingleScattering::runIteration(int iter)
 
 			Intersection inter;
 
-			if (scene.intersect(ray , inter) == NULL)
+			Geometry *surface = scene.intersect(ray , inter);
+
+			ray.tmin = 0.f;
+			ray.tmax = inter.t;
+
+			Real t0 , t1;
+			bool interMedia = 0;
+			if (scene.volume)
+				interMedia = scene.volume->hit(ray , &t0 , &t1);
+			
+			if (!interMedia)
 			{
-				break;
-			}
-
-			Vector3 hitPos = inter.p;
-
-			BSDF bsdf(-ray.dir , inter , scene);
-			if (!bsdf.isValid())
-				break;
-
-			Color3 li(0);
-
-			if (inter.matId < 0)
-			{
-				AbstractLight *light = scene.lights[-inter.matId - 1];
-
-				if (cameraState.pathLength >= minPathLength &&
-					cameraState.specularPath)
+				if (surface == NULL)
 				{
-					Ray lightRay(cameraState.origin , ray.dir);
-					color = color + (cameraState.throughput |
-						getLightRadiance(light , cameraState , 
-						hitPos , ray.dir) | transmittance(lightRay));
+					break;
 				}
-				break;
-			}
-
-			if (cameraState.pathLength >= maxPathLength)
-				break;
-            
-			// vertex connection: connect to light source
-			if (!bsdf.isDelta)
-			{
-				if (cameraState.pathLength + 1 >= minPathLength)
+				else
 				{
-					li = li + (cameraState.throughput |
-						getDirectIllumination(cameraState , hitPos , bsdf));
+					bool contFlag = 0;
+					color = color + handleSurface(cameraState , ray , 
+						inter , contFlag);
+					if (!contFlag)
+						break;
 				}
 			}
-
-			Color3 t;
-			Color3 lvi = getSingleScattering(ray , t);
-			color = color + (li | t) + lvi;
-			//color = color + li;
-
-			if (!sampleScattering(bsdf , hitPos , cameraState))
-				break;
+			else
+			{
+				color = color + handleVolume(cameraState , ray , t0 , t1);
+				if (cameraState.pathLength > maxPathLength)
+					break;
+			}		
 		}
-
 		film->addColor((int)screenSample.x , (int)screenSample.y , color);
 	}
 }
 
-Color3 SingleScattering::transmittance(const Ray& ray)
+Color3 VolumePathTracing::handleSurface(VptPathState& cameraState , 
+	Ray& ray , Intersection& inter , bool& contFlag)
+{
+	contFlag = 0;
+	Vector3 hitPos = inter.p;
+	Color3 res(0);
+
+	BSDF bsdf(-ray.dir , inter , scene);
+	if (!bsdf.isValid())
+		return res;
+
+	Color3 tr = transmittance(ray);
+	cameraState.throughput = (cameraState.throughput | tr);
+
+	if (inter.matId < 0)
+	{
+		AbstractLight *light = scene.lights[-inter.matId - 1];
+
+		if (cameraState.pathLength >= minPathLength &&
+			cameraState.specularPath)
+		{
+			Ray lightRay(hitPos , -ray.dir , 0.f , inter.t);
+			res = res + (cameraState.throughput |
+				getLightRadiance(light , cameraState , 
+				hitPos , ray.dir) | transmittance(lightRay));
+		}
+		return res;
+	}
+
+	if (cameraState.pathLength >= maxPathLength)
+		return res;
+
+	// vertex connection: connect to light source
+	if (!bsdf.isDelta)
+	{
+		if (cameraState.pathLength + 1 >= minPathLength)
+		{
+			res = res + (cameraState.throughput |
+				getDirectIllumination(cameraState , hitPos , bsdf));
+		}
+	}
+
+	contFlag = sampleScattering(bsdf , hitPos , cameraState);
+	return res;
+}
+
+Color3 VolumePathTracing::handleVolume(VptPathState& cameraState , 
+	Ray& ray , Real& t0 , Real& t1)
+{
+	Volume *vr = scene.volume;
+	Color3 res(0);
+
+	Real marchLen;
+	Color3 ss , tr;
+	Vector3 pos , dir;
+	ss = getMediaScattering(vr , ray , t0 , t1 , marchLen ,
+		pos , dir , tr);
+
+	cameraState.throughput = (cameraState.throughput | ss | tr);
+
+	if (!cameraState.throughput.isBlack() && scene.lights.size() > 0)
+	{
+		int lightCount = scene.lights.size();
+		int lightId = (int)(rng.randFloat() * lightCount);
+		AbstractLight *light = scene.lights[lightId];
+
+		Vector3 dirToLight;
+		Real dist , directPdf , emissionPdf , cosAtLight;
+
+		Color3 illu = light->illuminance(scene.sceneSphere , pos ,
+			rng.randVector3() , dirToLight , dist , directPdf , &emissionPdf ,
+			&cosAtLight);
+
+		if (!illu.isBlack() && directPdf > 0.f &&
+			!scene.occluded(pos , dirToLight , pos + dirToLight * dist))
+		{
+			Ray lightRay(pos + dirToLight * dist , -dirToLight , 0.f , dist);
+			Color3 ls = (illu | transmittance(lightRay));
+			Real phaseTerm = vr->p(pos , -ray.dir , dirToLight , 0.f);
+			res = res + (cameraState.throughput | ls) * phaseTerm *
+				(Real)lightCount / directPdf;
+		}
+	}
+
+	cameraState.specularPath &= 0;
+	cameraState.origin = pos;
+	cameraState.dir = dir;
+
+	return res;
+}
+
+Color3 VolumePathTracing::transmittance(const Ray& ray)
 {
 	if (!scene.volume)
 		return Color3(1.f);
 	Real step , offset;
-	step = 4.f * stepSize;
+	step = stepSize;
 	offset = rng.randFloat();
 	Color3 tau = scene.volume->tau(ray , step , offset);
 	return exp(-tau);
 }
 
-Color3 SingleScattering::getSingleScattering(const Ray& ray , Color3& t)
+Color3 VolumePathTracing::getMediaScattering(Volume* vr , Ray& ray , Real& t0 , 
+	Real& t1 , Real& marchLen , Vector3& pos , Vector3& dir , Color3& tr)
 {
-	Volume *vr = scene.volume;
-	Real t0 , t1;
-	if (!vr || !vr->hit(ray , &t0 , &t1) || (t1 - t0) == 0.f)
-	{
-		t = Color3(1.f);
-		return Color3(0.f);
-	}
+	vr = scene.volume;
 
-	t0 = std::max(t0 , 0.f);
-	t1 = std::max(t1 , 0.f);
+	marchLen = sampleSegment(rng.randFloat() , 
+		vr->sigmaS(ray.origin , -ray.dir , 0.f).intensity() , t1 - t0);
+	pos = ray.origin + ray.dir * t0 + ray.dir * marchLen;
+	dir = samplePhaseHG(-ray.dir , 0.f , rng.randVector3());
 
-	Color3 res(0.f);
-	int nSamples = (int)std::ceil((t1 - t0) / stepSize);
-	Real step = (t1 - t0) / nSamples;
-	Color3 tr(1.f);
+	Ray marchRay(ray.origin , ray.dir , 0.f , t0 + marchLen);
+	tr = transmittance(marchRay);
 
-	Vector3 p = ray(t0) , pPrev;
-	Vector3 w = -ray.dir;
-	t0 += rng.randFloat() * step;
-
-	for (int i = 0; i < nSamples; i++ , t0 += step)
-	{
-		pPrev = p;
-		p = ray(t0);
-		Ray tauRay(pPrev , p - pPrev);
-		Color3 stepTau = vr->tau(ray , 0.5f * stepSize , rng.randFloat());
-		tr = (tr | exp(-stepTau));
-
-		if (tr.intensity() < 1e-3)
-		{
-			Real contProb = 0.5f;
-			if (rng.randFloat() > contProb)
-			{
-				tr = Color3(0.f);
-				break;
-			}
-			tr = tr / contProb;
-		}
-
-		res = res + (tr | vr->emit(p , w , 0.f));
-
-		Color3 ss = vr->sigmaS(p , w , 0.f);
-
-		if (!ss.isBlack() && scene.lights.size() > 0)
-		{
-			int lightCount = scene.lights.size();
-			int lightId = (int)(rng.randFloat() * lightCount);
-			AbstractLight *light = scene.lights[lightId];
-
-			Vector3 dirToLight;
-			Real dist , directPdf , emissionPdf , cosAtLight;
-
-			Color3 illu = light->illuminance(scene.sceneSphere , p ,
-				rng.randVector3() , dirToLight , dist , directPdf , &emissionPdf ,
-				&cosAtLight);
-
-			if (!illu.isBlack() && directPdf > 0.f &&
-				!scene.occluded(p , dirToLight , p + dirToLight * dist))
-			{
-				Ray lightRay(p + dirToLight * dist , -dirToLight);
-				Color3 ls = (illu | transmittance(lightRay));
-				Real phaseTerm = vr->p(p , w , dirToLight , 0.f);
-				res = res + (tr | ss | ls) * phaseTerm *
-					(Real)lightCount / directPdf;
-			}
-		}
-	}
-
-	t = tr;
-	return res * step;
+	return vr->sigmaS(pos , -ray.dir , 0.f);
 }
 
-bool SingleScattering::sampleScattering(BSDF& bsdf , 
-	const Vector3& hitPos , SSPathState& pathState)
+bool VolumePathTracing::sampleScattering(BSDF& bsdf , 
+	const Vector3& hitPos , VptPathState& pathState)
 {
 	Real bsdfDirPdf , cosWo;
 	int sampledBSDFType;
@@ -243,8 +258,8 @@ bool SingleScattering::sampleScattering(BSDF& bsdf ,
 	return 1;
 }
 
-Vector3 SingleScattering::generateCameraSample(const int pathIndex , 
-	SSPathState& cameraState)
+Vector3 VolumePathTracing::generateCameraSample(const int pathIndex , 
+	VptPathState& cameraState)
 {
 	Camera& camera = scene.camera;
 	int y = pathIndex % width;
@@ -276,8 +291,8 @@ Vector3 SingleScattering::generateCameraSample(const int pathIndex ,
 	return sample;
 }
 
-Color3 SingleScattering::getLightRadiance(AbstractLight *light , 
-	SSPathState& cameraState , const Vector3& hitPos , 
+Color3 VolumePathTracing::getLightRadiance(AbstractLight *light , 
+	VptPathState& cameraState , const Vector3& hitPos , 
 	const Vector3& rayDir)
 {
 	int lightCount = scene.lights.size();
@@ -301,7 +316,7 @@ Color3 SingleScattering::getLightRadiance(AbstractLight *light ,
 	return radiance;
 }
 
-Color3 SingleScattering::getDirectIllumination(SSPathState& cameraState , 
+Color3 VolumePathTracing::getDirectIllumination(VptPathState& cameraState , 
 	const Vector3& hitPos , BSDF& bsdf)
 {
 	Color3 res(0);
@@ -336,7 +351,9 @@ Color3 SingleScattering::getDirectIllumination(SSPathState& cameraState ,
 			bsdfDirPdf *= light->isDelta() ? 0.f : contProb;
 			bsdfRevPdf *= contProb;
             
-			tmp = (illu | bsdfFactor) * cosToLight / (directPdf * lightPickProb);
+			Ray lightRay(hitPos , dirToLight , 0.f , dist);
+			tmp = (illu | bsdfFactor | transmittance(lightRay)) * 
+				cosToLight / (directPdf * lightPickProb);
 
 			if (!tmp.isBlack() && !scene.occluded(hitPos , dirToLight ,
 				hitPos + dirToLight * dist))
@@ -410,8 +427,11 @@ Color3 SingleScattering::getDirectIllumination(SSPathState& cameraState ,
 
 			if (!illu.isBlack())
 			{
-				tmp = (illu | bsdfFactor) * cosAtSurface /
-					(directPdf);
+				ray.tmin = 0.f;
+				ray.tmax = lightInter.t;
+
+				tmp = (illu | bsdfFactor | transmittance(ray)) * 
+					cosAtSurface / (directPdf);
 				res = res + tmp * weight;
 			}
 		}
