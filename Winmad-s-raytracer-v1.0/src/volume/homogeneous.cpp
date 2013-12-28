@@ -8,7 +8,12 @@ AABB HomogeneousVolumeDensity::worldBound()
 bool HomogeneousVolumeDensity::hit(const Ray& ray , Real *t0 , Real *t1)
 {
 	if (t0 != NULL && t1 != NULL)
-		return box.hit(ray , *t0 , *t1);
+	{
+		Real res = box.hit(ray , *t0 , *t1);
+		*t0 = clampVal(*t0 , ray.tmin , ray.tmax);
+		*t1 = clampVal(*t1 , ray.tmin , ray.tmax);
+		return res;
+	}
 	else
 	{
 		Real a , b;

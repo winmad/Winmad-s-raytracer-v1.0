@@ -1,10 +1,11 @@
 #include "volumePathTracing.h"
+#include <stack>
 
 void VolumePathTracing::init(char *filename , Parameters& para)
 {
 	minPathLength = 0;
 	maxPathLength = 10;
-	iterations = 50;
+	iterations = 4000;
 
 	stepSize = 1.f;
 
@@ -53,6 +54,16 @@ void VolumePathTracing::runIteration(int iter)
 
 		VptPathState cameraState;
 		Vector3 screenSample = generateCameraSample(pathIndex , cameraState);
+		
+		std::stack<Volume*> vStack;
+		vStack.push(NULL);
+
+		if (scene.volume != NULL && 
+			scene.volume->worldBound().inside(cameraState.origin))
+		{
+			cameraState.vr = scene.volume;
+			vStack.push(cameraState.vr);
+		}
 
 		Color3 color(0);
 
@@ -65,13 +76,10 @@ void VolumePathTracing::runIteration(int iter)
 
 			Geometry *surface = scene.intersect(ray , inter);
 
-			ray.tmin = 0.f;
-			ray.tmax = inter.t;
-
 			Real t0 , t1;
 			bool interMedia = 0;
-			if (scene.volume)
-				interMedia = scene.volume->hit(ray , &t0 , &t1);
+			if (cameraState.vr)
+				interMedia = cameraState.vr->hit(ray , &t0 , &t1);
 			
 			if (!interMedia)
 			{
@@ -82,25 +90,68 @@ void VolumePathTracing::runIteration(int iter)
 				else
 				{
 					bool contFlag = 0;
+					int inOutFlag = 0;
 					color = color + handleSurface(cameraState , ray , 
-						inter , contFlag);
+						inter , contFlag , inOutFlag);
 					if (!contFlag)
 						break;
+
+					if (inOutFlag == 1)
+					{
+						cameraState.vr = NULL;
+						vStack.push(NULL);
+					}
+					else if (inOutFlag == 2)
+					{
+						vStack.pop();
+						cameraState.vr = vStack.top();
+					}
 				}
 			}
 			else
 			{
-				color = color + handleVolume(cameraState , ray , t0 , t1);
-				if (cameraState.pathLength > maxPathLength)
-					break;
-			}		
+				Real marchLen;
+				Color3 tr;
+				Vector3 pos , dir;
+				Real pdf;
+				pdf = getMediaScattering(cameraState.vr , ray , t0 , t1 , marchLen ,
+					pos , dir , tr);
+
+				if (marchLen >= inter.t)
+				{
+					bool contFlag = 0;
+					int inOutFlag = 0;
+					color = color + handleSurface(cameraState , ray , 
+						inter , contFlag , inOutFlag);
+					if (!contFlag)
+						break;
+
+					if (inOutFlag == 1)
+					{
+						cameraState.vr = NULL;
+						vStack.push(NULL);
+					}
+					else if (inOutFlag == 2)
+					{
+						vStack.pop();
+						cameraState.vr = vStack.top();
+					}
+				}
+				else
+				{
+					color = color + handleVolume(cameraState , ray , t0 , t1 ,
+						tr , pos , dir , pdf);
+					if (cameraState.pathLength > maxPathLength)
+						break;
+				}
+			}
 		}
 		film->addColor((int)screenSample.x , (int)screenSample.y , color);
 	}
 }
 
 Color3 VolumePathTracing::handleSurface(VptPathState& cameraState , 
-	Ray& ray , Intersection& inter , bool& contFlag)
+	Ray& ray , Intersection& inter , bool& contFlag , int& inOutFlag)
 {
 	contFlag = 0;
 	Vector3 hitPos = inter.p;
@@ -109,8 +160,12 @@ Color3 VolumePathTracing::handleSurface(VptPathState& cameraState ,
 	BSDF bsdf(-ray.dir , inter , scene);
 	if (!bsdf.isValid())
 		return res;
+	
+	ray.tmin = 0.f;
+	ray.tmax = inter.t;
 
-	Color3 tr = transmittance(ray);
+	Color3 tr = transmittance(cameraState.vr , ray);
+
 	cameraState.throughput = (cameraState.throughput | tr);
 
 	if (inter.matId < 0)
@@ -123,7 +178,7 @@ Color3 VolumePathTracing::handleSurface(VptPathState& cameraState ,
 			Ray lightRay(hitPos , -ray.dir , 0.f , inter.t);
 			res = res + (cameraState.throughput |
 				getLightRadiance(light , cameraState , 
-				hitPos , ray.dir) | transmittance(lightRay));
+				hitPos , ray.dir) | transmittance(cameraState.vr , lightRay));
 		}
 		return res;
 	}
@@ -141,23 +196,20 @@ Color3 VolumePathTracing::handleSurface(VptPathState& cameraState ,
 		}
 	}
 
-	contFlag = sampleScattering(bsdf , hitPos , cameraState);
+	contFlag = sampleScattering(bsdf , hitPos , cameraState , inOutFlag);
 	return res;
 }
 
 Color3 VolumePathTracing::handleVolume(VptPathState& cameraState , 
-	Ray& ray , Real& t0 , Real& t1)
+	Ray& ray , Real& t0 , Real& t1 , Color3& tr , Vector3& pos , 
+	Vector3& dir , Real& pdf)
 {
 	Volume *vr = scene.volume;
 	Color3 res(0);
 
-	Real marchLen;
-	Color3 ss , tr;
-	Vector3 pos , dir;
-	ss = getMediaScattering(vr , ray , t0 , t1 , marchLen ,
-		pos , dir , tr);
+	Color3 ss = vr->sigmaS(pos , -ray.dir , 0.f);
 
-	cameraState.throughput = (cameraState.throughput | ss | tr);
+	cameraState.throughput = (cameraState.throughput | ss | tr) / pdf;
 
 	if (!cameraState.throughput.isBlack() && scene.lights.size() > 0)
 	{
@@ -176,7 +228,7 @@ Color3 VolumePathTracing::handleVolume(VptPathState& cameraState ,
 			!scene.occluded(pos , dirToLight , pos + dirToLight * dist))
 		{
 			Ray lightRay(pos + dirToLight * dist , -dirToLight , 0.f , dist);
-			Color3 ls = (illu | transmittance(lightRay));
+			Color3 ls = (illu | transmittance(cameraState.vr , lightRay));
 			Real phaseTerm = vr->p(pos , -ray.dir , dirToLight , 0.f);
 			res = res + (cameraState.throughput | ls) * phaseTerm *
 				(Real)lightCount / directPdf;
@@ -190,40 +242,43 @@ Color3 VolumePathTracing::handleVolume(VptPathState& cameraState ,
 	return res;
 }
 
-Color3 VolumePathTracing::transmittance(const Ray& ray)
+Color3 VolumePathTracing::transmittance(Volume *vr , const Ray& ray)
 {
-	if (!scene.volume)
+	if (vr == NULL)
 		return Color3(1.f);
 	Real step , offset;
 	step = stepSize;
 	offset = rng.randFloat();
-	Color3 tau = scene.volume->tau(ray , step , offset);
+	Color3 tau = vr->tau(ray , step , offset);
 	return exp(-tau);
 }
 
-Color3 VolumePathTracing::getMediaScattering(Volume* vr , Ray& ray , Real& t0 , 
+Real VolumePathTracing::getMediaScattering(Volume* vr , Ray& ray , Real& t0 , 
 	Real& t1 , Real& marchLen , Vector3& pos , Vector3& dir , Color3& tr)
 {
 	vr = scene.volume;
 
 	marchLen = sampleSegment(rng.randFloat() , 
-		vr->sigmaS(ray.origin , -ray.dir , 0.f).intensity() , t1 - t0);
+		vr->sigmaT(ray.origin , -ray.dir , 0.f).intensity() , t1 - t0);
 	pos = ray.origin + ray.dir * t0 + ray.dir * marchLen;
 	dir = samplePhaseHG(-ray.dir , 0.f , rng.randVector3());
 
 	Ray marchRay(ray.origin , ray.dir , 0.f , t0 + marchLen);
-	tr = transmittance(marchRay);
+	tr = transmittance(vr , marchRay);
 
-	return vr->sigmaS(pos , -ray.dir , 0.f);
+	return 1 - std::exp(-vr->sigmaT(ray.origin , -ray.dir , 0.f).intensity() *
+		(t1 - t0));
 }
 
+// 0 = normal, 1 = enter in, 2 = exit out
 bool VolumePathTracing::sampleScattering(BSDF& bsdf , 
-	const Vector3& hitPos , VptPathState& pathState)
+	const Vector3& hitPos , VptPathState& pathState , int& inOutFlag)
 {
 	Real bsdfDirPdf , cosWo;
 	int sampledBSDFType;
 	Color3 bsdfFactor = bsdf.sample(scene , rng.randVector3() ,
 		pathState.dir , bsdfDirPdf , cosWo , &sampledBSDFType);
+	inOutFlag = 0;
 
 	if (bsdfFactor.isBlack())
 		return 0;
@@ -249,6 +304,14 @@ bool VolumePathTracing::sampleScattering(BSDF& bsdf ,
 	else
 	{
 		pathState.specularPath &= 0;
+	}
+
+	if (sampledBSDFType & BSDF_TRANSMISSION)
+	{
+		if ((pathState.dir ^ bsdf.localFrame.normal()) >= 0)
+			inOutFlag = 2;
+		else
+			inOutFlag = 1;
 	}
 
 	pathState.origin = hitPos;
@@ -352,8 +415,8 @@ Color3 VolumePathTracing::getDirectIllumination(VptPathState& cameraState ,
 			bsdfRevPdf *= contProb;
             
 			Ray lightRay(hitPos , dirToLight , 0.f , dist);
-			tmp = (illu | bsdfFactor | transmittance(lightRay)) * 
-				cosToLight / (directPdf * lightPickProb);
+			tmp = (illu | bsdfFactor | transmittance(cameraState.vr ,
+				lightRay)) * cosToLight / (directPdf * lightPickProb);
 
 			if (!tmp.isBlack() && !scene.occluded(hitPos , dirToLight ,
 				hitPos + dirToLight * dist))
@@ -430,8 +493,8 @@ Color3 VolumePathTracing::getDirectIllumination(VptPathState& cameraState ,
 				ray.tmin = 0.f;
 				ray.tmax = lightInter.t;
 
-				tmp = (illu | bsdfFactor | transmittance(ray)) * 
-					cosAtSurface / (directPdf);
+				tmp = (illu | bsdfFactor | transmittance(cameraState.vr ,
+					ray)) * cosAtSurface / (directPdf);
 				res = res + tmp * weight;
 			}
 		}

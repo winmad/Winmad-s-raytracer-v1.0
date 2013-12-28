@@ -1,5 +1,5 @@
-#ifndef SINGLE_SCATTERING_H
-#define SINGLE_SCATTERING_H
+#ifndef VOLUME_PATH_TRACING_H
+#define VOLUME_PATH_TRACING_H
 
 #include "volumeIntegrator.h"
 
@@ -9,6 +9,7 @@ struct VptPathState
 	Vector3 dir;
 	Color3 throughput;
 	BSDF bsdf;
+	Volume *vr;
 
 	int pathLength : 15;
 	int specularVertexNum : 15;
@@ -35,7 +36,7 @@ public:
 	void outputImage(char *filename);
 
 	bool sampleScattering(BSDF& bsdf , const Vector3& hitPos , 
-		VptPathState& pathState);
+		VptPathState& pathState , int& inOutFlag);
 
 	Vector3 generateCameraSample(const int pathIndex , 
 		VptPathState& cameraState);
@@ -47,16 +48,17 @@ public:
 	Color3 getDirectIllumination(VptPathState& cameraState , 
 		const Vector3& hitPos , BSDF& bsdf);
 
-	Color3 transmittance(const Ray& ray);
+	Color3 transmittance(Volume *vr , const Ray& ray);
 
-	Color3 getMediaScattering(Volume* vr , Ray& ray , Real& t0 , 
+	Real getMediaScattering(Volume* vr , Ray& ray , Real& t0 , 
 		Real& t1 , Real& marchLen , Vector3& pos , Vector3& dir , Color3& tr);
 
 	Color3 handleSurface(VptPathState& cameraState , Ray& ray ,
-		Intersection& inter , bool& contFlag);
+		Intersection& inter , bool& contFlag , int& inOutFlag);
 
 	Color3 handleVolume(VptPathState& cameraState , 
-		Ray& ray , Real& t0 , Real& t1); 
+		Ray& ray , Real& t0 , Real& t1 , Color3& tr , Vector3& pos , 
+		Vector3& dir , Real& pdf); 
 
 	Real mis(Real pdf)
 	{
