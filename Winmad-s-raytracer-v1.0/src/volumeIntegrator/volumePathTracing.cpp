@@ -5,7 +5,7 @@ void VolumePathTracing::init(char *filename , Parameters& para)
 {
 	minPathLength = 0;
 	maxPathLength = 10;
-	iterations = 4000;
+	iterations = 5000;
 
 	stepSize = 1.f;
 
@@ -139,9 +139,34 @@ void VolumePathTracing::runIteration(int iter)
 				}
 				else
 				{
-					color = color + handleVolume(cameraState , ray , t0 , t1 ,
-						tr , pos , dir , pdf);
-					if (cameraState.pathLength > maxPathLength)
+					if (rng.randFloat() <= pdf)
+					{
+						color = color + handleVolume(cameraState , ray , t0 , t1 ,
+							tr , pos , dir , pdf);
+						if (cameraState.pathLength > maxPathLength)
+							break;
+					}
+					else if (surface != NULL)
+					{
+						bool contFlag = 0;
+						int inOutFlag = 0;
+						color = color + handleSurface(cameraState , ray , 
+							inter , contFlag , inOutFlag);
+						if (!contFlag)
+							break;
+
+						if (inOutFlag == 1)
+						{
+							cameraState.vr = NULL;
+							vStack.push(NULL);
+						}
+						else if (inOutFlag == 2)
+						{
+							vStack.pop();
+							cameraState.vr = vStack.top();
+						}
+					}
+					else
 						break;
 				}
 			}
@@ -209,7 +234,7 @@ Color3 VolumePathTracing::handleVolume(VptPathState& cameraState ,
 
 	Color3 ss = vr->sigmaS(pos , -ray.dir , 0.f);
 
-	cameraState.throughput = (cameraState.throughput | ss | tr) / pdf;
+	cameraState.throughput = (cameraState.throughput | tr);
 
 	if (!cameraState.throughput.isBlack() && scene.lights.size() > 0)
 	{
