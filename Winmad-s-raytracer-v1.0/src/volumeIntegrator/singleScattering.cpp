@@ -4,7 +4,7 @@ void SingleScattering::init(char *filename , Parameters& para)
 {
 	minPathLength = 0;
 	maxPathLength = 10;
-	iterations = 1;
+	iterations = 10;
 
 	stepSize = 1.f;
 
