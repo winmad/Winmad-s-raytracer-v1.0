@@ -1,8 +1,8 @@
 <scene>
 	<camera>
-		<position x="0" y="0" z="1200"/>
-		<forward x="0.05" y="0" z="-1"/>
-		<up x="0" y="1" z="0"/>
+		<position x="-603.8923" y="1013.96" z="1823.33"/>
+		<forward x="0.11" y="-0.373" z="-0.921"/>
+		<up x="-0.25" y="0.885" z="-0.389"/>
 		<resolution height="512" width="512"/>
 		<horizontalFOV horizontalFOV="34.6222"/>
 	</camera>
@@ -43,23 +43,37 @@
 		<refracIndex refracIndex="-1"/>
 	</material>
 
+	<!-- 4 glass mirror -->
+	<material>
+		<diffuse r="0" g="0" b="0"/>
+		<glossy r="0" g="0" b="0"/>
+		<specular r="1" g="1" b="1"/>
+		<phongExp phongExp="0"/>
+		<refracIndex refracIndex="-1"/>
+	</material>
+	
 	<object>
-		<file_path path="E:\\Winmad\\Winmad-s-raytracer-v1.0\\Winmad-s-raytracer-v1.0\\ObjFiles\\torus_torus.obj"/>
+		<file_path path="E:\Winmad\Winmad-s-raytracer-v1.0\Winmad-s-raytracer-v1.0\ObjFiles\new_torus\\torus_torus.obj"/>
 		<matid matid="1"/>
 	</object>
 	
 	<object>
-		<file_path path="E:\\Winmad\\Winmad-s-raytracer-v1.0\\Winmad-s-raytracer-v1.0\\ObjFiles\\torus_glass.obj"/>
+		<file_path path="E:\Winmad\Winmad-s-raytracer-v1.0\Winmad-s-raytracer-v1.0\ObjFiles\new_torus\\torus_glass.obj"/>
 		<matid matid="2"/>
 	</object>
 	
 	<object>
-		<file_path path="E:\\Winmad\\Winmad-s-raytracer-v1.0\\Winmad-s-raytracer-v1.0\\ObjFiles\\torus_floor.obj"/>
+		<file_path path="E:\Winmad\Winmad-s-raytracer-v1.0\Winmad-s-raytracer-v1.0\ObjFiles\new_torus\\torus_floor.obj"/>
 		<matid matid="3"/>
 	</object>
 	
+	<object>
+		<file_path path="E:\Winmad\Winmad-s-raytracer-v1.0\Winmad-s-raytracer-v1.0\ObjFiles\new_torus\\torus_mirror.obj"/>
+		<matid matid="4"/>
+	</object>
+	
 	<area_light>
-		<file_path path="E:\\Winmad\\Winmad-s-raytracer-v1.0\\Winmad-s-raytracer-v1.0\\ObjFiles\\torus_light.obj"/>
+		<file_path path="E:\Winmad\Winmad-s-raytracer-v1.0\Winmad-s-raytracer-v1.0\ObjFiles\new_torus\\torus_light.obj"/>
 		<intensity r="70" g="70" b="70"/>
 	</area_light>
 	

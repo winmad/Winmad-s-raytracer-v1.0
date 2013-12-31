@@ -233,7 +233,13 @@ Color3 VolumePathTracing::handleVolume(VptPathState& cameraState ,
 	Color3 res(0);
 
 	Color3 ss = vr->sigmaS(pos , -ray.dir , 0.f);
-
+	/*
+	if (rng.randFloat() > ss.intensity())
+	{
+		cameraState.pathLength = maxPathLength + 2;
+		return res;
+	}
+	*/
 	cameraState.throughput = (cameraState.throughput | tr);
 
 	if (!cameraState.throughput.isBlack() && scene.lights.size() > 0)
