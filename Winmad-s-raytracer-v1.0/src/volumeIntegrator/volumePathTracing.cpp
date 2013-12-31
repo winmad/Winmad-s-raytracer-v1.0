@@ -5,7 +5,7 @@ void VolumePathTracing::init(char *filename , Parameters& para)
 {
 	minPathLength = 0;
 	maxPathLength = 10;
-	iterations = 5000;
+	iterations = 10;
 
 	stepSize = 1.f;
 
@@ -233,7 +233,6 @@ Color3 VolumePathTracing::handleVolume(VptPathState& cameraState ,
 	Color3 res(0);
 
 	Color3 ss = vr->sigmaS(pos , -ray.dir , 0.f);
-
 	Color3 st = vr->sigmaT(pos , -ray.dir , 0.f);
 	Real scatterAlbedo = ss.intensity() / st.intensity();
 
