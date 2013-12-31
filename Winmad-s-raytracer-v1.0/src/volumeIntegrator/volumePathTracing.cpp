@@ -16,7 +16,7 @@ void VolumePathTracing::init(char *filename , Parameters& para)
 	film = new ImageFilm(height , width);
 }
 
-static FILE *fp = fopen("debug_vss.txt" , "w");
+static FILE *fp = fopen("debug_vpt.txt" , "w");
 
 void VolumePathTracing::render()
 {
@@ -113,8 +113,8 @@ void VolumePathTracing::runIteration(int iter)
 				Real marchLen;
 				Color3 tr;
 				Vector3 pos , dir;
-				Real pdf;
-				pdf = getMediaScattering(cameraState.vr , ray , t0 , t1 , marchLen ,
+				Real cmf;
+				cmf = getMediaScattering(cameraState.vr , ray , t0 , t1 , marchLen ,
 					pos , dir , tr);
 
 				if (marchLen >= inter.t)
@@ -139,10 +139,10 @@ void VolumePathTracing::runIteration(int iter)
 				}
 				else
 				{
-					if (rng.randFloat() <= pdf)
+					if (rng.randFloat() <= 2) // <= cmf
 					{
 						color = color + handleVolume(cameraState , ray , t0 , t1 ,
-							tr , pos , dir , pdf);
+							tr , pos , dir , cmf);
 						if (cameraState.pathLength > maxPathLength)
 							break;
 					}
@@ -233,14 +233,16 @@ Color3 VolumePathTracing::handleVolume(VptPathState& cameraState ,
 	Color3 res(0);
 
 	Color3 ss = vr->sigmaS(pos , -ray.dir , 0.f);
-	/*
-	if (rng.randFloat() > ss.intensity())
+
+	Color3 st = vr->sigmaT(pos , -ray.dir , 0.f);
+	Real scatterAlbedo = ss.intensity() / st.intensity();
+
+	if (rng.randFloat() > scatterAlbedo)
 	{
-		cameraState.pathLength = maxPathLength + 2;
+		cameraState.pathLength = maxPathLength + 1;
 		return res;
 	}
-	*/
-	cameraState.throughput = (cameraState.throughput | tr);
+	//cameraState.throughput = (cameraState.throughput | tr);
 
 	if (!cameraState.throughput.isBlack() && scene.lights.size() > 0)
 	{
@@ -261,7 +263,7 @@ Color3 VolumePathTracing::handleVolume(VptPathState& cameraState ,
 			Ray lightRay(pos + dirToLight * dist , -dirToLight , 0.f , dist);
 			Color3 ls = (illu | transmittance(cameraState.vr , lightRay));
 			Real phaseTerm = vr->p(pos , -ray.dir , dirToLight , 0.f);
-			res = res + (cameraState.throughput | ls) * phaseTerm *
+			res = res + (cameraState.throughput | ss | ls) * phaseTerm *
 				(Real)lightCount / directPdf;
 		}
 	}
