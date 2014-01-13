@@ -5,7 +5,7 @@ void VolumePathTracing::init(char *filename , Parameters& para)
 {
 	minPathLength = 0;
 	maxPathLength = 10;
-	iterations = 10;
+	iterations = 1;
 
 	stepSize = 1.f;
 

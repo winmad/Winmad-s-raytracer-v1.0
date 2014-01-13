@@ -6,7 +6,7 @@ void MultipleMerge::init(char *filename , Parameters& para)
 {
 	minPathLength = 0;
 	maxPathLength = 10;
-	iterations = 1;
+	iterations = 20;
 
 	samplesPerPixel = para.SAMPLES_PER_PIXEL;
 
@@ -226,11 +226,6 @@ void MultipleMerge::runIteration(int iter)
 	for (int index = 0; index < cameraPathNum; index++)
 	{
 		int pathIndex = index % (height * width);
-
-		if (pathIndex == 256 * 512 + 502)
-		{
-			int flag = 1;
-		}
 
 		MMPathState cameraState;
 		Vector3 screenSample = generateCameraSample(pathIndex , cameraState);
@@ -524,7 +519,7 @@ bool MultipleMerge::sampleScattering(BSDF& bsdf ,
 	{
 		if (cmp(bsdfRevPdf) == 0)
 			bsdfRevPdf = 1e-7f;
-
+		/*
 		if (sampledBSDFType & BSDF_SPECULAR)
 		{
 			pathState.throughput = (pathState.throughput | bsdfFactor) *
@@ -535,6 +530,10 @@ bool MultipleMerge::sampleScattering(BSDF& bsdf ,
 			pathState.throughput = (pathState.throughput | bsdfFactor) *
 				(std::abs(bsdf.cosWi()) / bsdfRevPdf);
 		}
+		*/
+
+		pathState.throughput = (pathState.throughput | bsdfFactor) *
+			(cosWo / bsdfDirPdf);
 
 		*_bsdfDirPdf = bsdfRevPdf;
 	}
@@ -666,7 +665,8 @@ Color3 MultipleMerge::getDirectIllumination(MMPathState& cameraState ,
 		if (cmp(pdf) == 0)
 			pdf = 1e-7f;
 
-		Real cosTerm = std::abs(bsdf.cosWi());
+		//Real cosTerm = std::abs(bsdf.cosWi());
+		Real cosTerm = cosToLight;
 
 		tmp = (illu | bsdfFactor) * cosTerm / (directPdf * lightPickProb);
 
